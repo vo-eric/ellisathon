@@ -31,7 +31,7 @@ function transitionCountFromChain(chain: MoveListNodeSnapshot | null): number {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>(DEV_RESULTS_PREVIEW ? 'results' : 'alias');
+  const [screen, setScreen] = useState<Screen>('alias');
   const [aliasInput, setAliasInput] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [lobbies, setLobbies] = useState<LobbySnapshot[]>([]);
