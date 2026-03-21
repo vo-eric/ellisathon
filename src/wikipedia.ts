@@ -1,4 +1,6 @@
-import vitalArticles from './vitalArticles.json';
+import vitalData from './vitalArticles.json';
+
+const vitalArticles = vitalData.articles;
 
 export interface RandomArticle {
   id: number;
@@ -9,11 +11,11 @@ export async function getRandomArticles(): Promise<{
   start: RandomArticle;
   target: RandomArticle;
 }> {
-  const startTitle = vitalArticles[Math.floor(Math.random() * vitalArticles.length)];
-  const targetTitle = vitalArticles[Math.floor(Math.random() * vitalArticles.length)];
+  const start = vitalArticles[Math.floor(Math.random() * vitalArticles.length)];
+  const target = vitalArticles[Math.floor(Math.random() * vitalArticles.length)];
 
   return {
-    start: { id: 0, title: startTitle },
-    target: { id: 0, title: targetTitle },
+    start: { id: 0, title: start.title },
+    target: { id: 0, title: target.title },
   };
 }
