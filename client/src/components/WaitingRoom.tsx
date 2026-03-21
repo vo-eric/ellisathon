@@ -35,7 +35,14 @@ export function WaitingRoom({
 
       <div className='waiting-room-target-only'>
         <p className='waiting-room-target-label'>Goal article</p>
-        <p className='waiting-room-target-name'>{lobby.targetArticle.title}</p>
+        <a
+          href={lobby.targetArticle.url}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='waiting-room-target-name waiting-room-target-link'
+        >
+          {lobby.targetArticle.title}
+        </a>
         <p className='waiting-room-target-note'>
           The starting article stays hidden until everyone is seated, ready, and
           the countdown finishes.

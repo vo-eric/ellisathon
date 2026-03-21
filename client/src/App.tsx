@@ -40,6 +40,7 @@ export default function App() {
   const [creatingLobby, setCreatingLobby] = useState(false);
 
   const [gameTarget, setGameTarget] = useState('');
+  const [gameTargetUrl, setGameTargetUrl] = useState('');
   const [gameCurrent, setGameCurrent] = useState('');
   const [moveCount, setMoveCount] = useState(0);
   const [iframeSrc, setIframeSrc] = useState<string | null>(null);
@@ -105,6 +106,7 @@ export default function App() {
           lastWikiPathnameRef.current = '';
         }
         setGameTarget(lobby.targetArticle.title);
+        setGameTargetUrl(lobby.targetArticle.url);
         setGameCurrent(start.title);
         setMoveCount(0);
         setMoveChain(lobby.moveChain ?? null);
@@ -256,6 +258,8 @@ export default function App() {
     setWaitingLobby(null);
     setMyPlayerId(null);
     setCountdownSeconds(null);
+    setGameTarget('');
+    setGameTargetUrl('');
     setScreen('lobbies');
     refreshLobbies();
   };
@@ -345,7 +349,15 @@ export default function App() {
                     <div className='lobby-meta'>
                       <div className='lobby-articles'>
                         <span className='lobby-start-hidden'>Start hidden</span>{' '}
-                        &rarr; <strong>{lobby.targetArticle.title}</strong>
+                        &rarr;{' '}
+                        <a
+                          href={lobby.targetArticle.url}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          className='lobby-target-link'
+                        >
+                          <strong>{lobby.targetArticle.title}</strong>
+                        </a>
                       </div>
                       <div className='lobby-players'>
                         {lobby.players.length}/{lobby.maxPlayers} players
@@ -417,7 +429,20 @@ export default function App() {
             </div>
             <div className='game-bar-right'>
               <span className='game-label'>Target</span>
-              <span className='game-article-name target'>{gameTarget}</span>
+              {gameTargetUrl ? (
+                <a
+                  href={gameTargetUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='game-article-name target game-bar-target-link'
+                >
+                  {gameTarget || '—'}
+                </a>
+              ) : (
+                <span className='game-article-name target'>
+                  {gameTarget || '—'}
+                </span>
+              )}
             </div>
           </div>
           {iframeSrc !== null && (
