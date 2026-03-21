@@ -1,5 +1,7 @@
+import vitalArticles from './vitalArticles.json';
+
 const RANDOM_API =
-  'https://en.wikipedia.org/w/api.php?action=query&list=random&rnnamespace=0&rnlimit=2&format=json';
+  'https://en.wikipedia.org/w/api.php?action=query&list=random&rnnamespace=0&rnlimit=1&format=json';
 
 export interface RandomArticle {
   id: number;
@@ -16,6 +18,7 @@ export async function getRandomArticles(): Promise<{
       Accept: 'application/json',
     },
   });
+
   if (!res.ok) {
     throw new Error(`Wikipedia API responded with ${res.status}`);
   }
@@ -24,9 +27,11 @@ export async function getRandomArticles(): Promise<{
     query: { random: { id: number; title: string }[] };
   };
 
-  const [first, second] = data.query.random;
+  const start = data.query.random[0];
+  const targetTitle = vitalArticles[Math.floor(Math.random() * vitalArticles.length)];
+
   return {
-    start: { id: first.id, title: first.title },
-    target: { id: second.id, title: second.title },
+    start: { id: start.id, title: start.title },
+    target: { id: 0, title: targetTitle },
   };
 }
