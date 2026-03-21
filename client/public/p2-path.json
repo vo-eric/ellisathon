@@ -1,0 +1,13 @@
+{
+  "playerId": "p2",
+  "playerName": "peter",
+  "color": "#FBD860",
+  "moves": [
+    { "article": "Pet",          "url": "https://en.wikipedia.org/wiki/Pet",                    "step": 1, "end": false, "timestamp": 1742558400000 },
+    { "article": "Animal",       "url": "https://en.wikipedia.org/wiki/Animal",                 "step": 2, "end": false, "timestamp": 1742558411000 },
+    { "article": "Mammal",       "url": "https://en.wikipedia.org/wiki/Mammal",                 "step": 3, "end": false, "timestamp": 1742558422000 },
+    { "article": "Metabolism",   "url": "https://en.wikipedia.org/wiki/Metabolism",             "step": 4, "end": false, "timestamp": 1742558435000 },
+    { "article": "Enzyme",       "url": "https://en.wikipedia.org/wiki/Enzyme",                 "step": 5, "end": false, "timestamp": 1742558447000 },
+    { "article": "Biochemistry", "url": "https://en.wikipedia.org/wiki/Biochemistry",           "step": 6, "end": true,  "timestamp": 1742558461000 }
+  ]
+}

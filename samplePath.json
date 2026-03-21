@@ -1,0 +1,36 @@
+{
+  "article": "Home",
+  "url": "https://en.wikipedia.org/wiki/Home",
+  "step": 1,
+  "end": false,
+  "timestamp": "2026-03-21T12:00:00.000Z",
+  "next": {
+    "article": "Pet",
+    "url": "http://localhost:3000/wiki/Pet",
+    "step": 2,
+    "end": false,
+    "timestamp": "2026-03-21T12:00:05.000Z",
+    "next": {
+      "article": "Laboratory animal",
+      "url": "http://localhost:3000/wiki/Laboratory_animal",
+      "step": 3,
+      "end": false,
+      "timestamp": "2026-03-21T12:00:10.000Z",
+      "next": {
+        "article": "Model organism",
+        "url": "http://localhost:3000/wiki/Model_organism",
+        "step": 4,
+        "end": false,
+        "timestamp": "2026-03-21T12:00:15.000Z",
+        "next": {
+          "article": "Biochemistry",
+          "url": "http://localhost:3000/wiki/Biochemistry",
+          "step": 5,
+          "end": true,
+          "timestamp": "2026-03-21T12:00:20.000Z",
+          "next": null
+        }
+      }
+    }
+  }
+}

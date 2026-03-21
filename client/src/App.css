@@ -797,3 +797,284 @@ button:disabled {
   background: #fff;
   min-height: 0;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESULTS PAGE  (cream theme matching mockup)
+═══════════════════════════════════════════════════════════════ */
+
+.screen-results {
+  background: #FEFAE8;
+  color: #111;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+.results-page {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 60px 48px 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+/* ── Scorecards: side-by-side, cream bg, name pill + big number ── */
+.results-scorecards {
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.results-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Colored pill with player name */
+.results-card-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #111;
+  border-radius: 999px;
+  padding: 5px 18px;
+  letter-spacing: 0.03em;
+}
+
+/* Big bold move count on dark rounded rect */
+.results-card-moves {
+  font-family: 'Space Mono', monospace;
+  font-size: 5rem;
+  font-weight: 900;
+  color: #fff;
+  background: #111;
+  border-radius: 20px;
+  line-height: 1;
+  padding: 16px 28px 12px;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   REPLAY TIMELINE  (matches mockup: "replay ▶" label, thin rail,
+   colored circles, hollow playhead circle)
+═══════════════════════════════════════════════════════════════ */
+
+.rtl-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 4px 0;
+}
+
+/* "replay ▶" group on the left */
+.rtl-label-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.rtl-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: 0.04em;
+}
+
+.rtl-play-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: #111;
+  padding: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+/* 1× 2× 5× speed buttons */
+.rtl-speed-btn {
+  background: none;
+  border: 1.5px solid #bbb;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #666;
+  padding: 3px 7px;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.rtl-speed-btn:hover {
+  border-color: #111;
+  color: #111;
+}
+.rtl-speed-btn--active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+/* Track container */
+.rtl-track-wrap {
+  position: relative;
+  flex: 1;
+  height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+/* Thin dark rail */
+.rtl-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #111;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+/* Numbered/colored step circles */
+.rtl-marker {
+  position: absolute;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid;
+  font-size: 10px;
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  color: #111;
+  transition: transform 0.1s;
+  padding: 0;
+  line-height: 1;
+}
+.rtl-marker:hover { transform: translateX(-50%) scale(1.2); }
+
+.rtl-flag {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Hollow white circle playhead */
+.rtl-playhead {
+  position: absolute;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2.5px solid #111;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Invisible native range scrubber on top */
+.rtl-scrub {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 4;
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   REPLAY GRAPH
+═══════════════════════════════════════════════════════════════ */
+
+.results-graph-wrap {
+  overflow-x: auto;
+}
+
+.rg-svg {
+  display: block;
+  overflow: visible;
+  min-width: 700px;
+}
+
+.rg-node {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.rg-node:hover rect {
+  filter: brightness(0.94);
+}
+
+/* ── Animated directional edges ── */
+/* stroke-dasharray and SVG animate element handle the motion;
+   no additional CSS needed — the animation is driven by SVG SMIL */
+
+/* ── Wikipedia hover tooltip ── */
+.rg-tooltip {
+  position: fixed;
+  background: #fff;
+  border: 1.5px solid #ddd;
+  border-radius: 12px;
+  padding: 12px 16px;
+  max-width: 240px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  color: #111;
+  pointer-events: auto;
+  z-index: 200;
+  transform: translate(-50%, calc(-100% - 14px));
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+}
+.rg-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-bottom: none;
+  border-top-color: #fff;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.08));
+}
+.rg-tooltip-title {
+  display: block;
+  font-weight: 700;
+  font-size: 12px;
+  color: #111;
+  text-decoration: none;
+  margin-bottom: 6px;
+}
+.rg-tooltip-title:hover {
+  text-decoration: underline;
+}
+.rg-tooltip-extract {
+  margin: 0;
+  color: #444;
+}
+.rg-tooltip-loading {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+@keyframes node-pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  70%  { transform: scale(1.06); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
