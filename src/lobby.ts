@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import WebSocket from 'ws';
+import { noopLobbyPersistence, type LobbyPersistence } from './lobbyDb';
 import {
   Lobby,
   LobbySnapshot,
@@ -34,6 +35,8 @@ export class LobbyManager {
   private moveChains: Map<string, MoveChain> = new Map();
   private countdownTokens: Map<string, CountdownToken> = new Map();
 
+  constructor(private readonly persist: LobbyPersistence = noopLobbyPersistence()) {}
+
   createLobby(startArticle: string, targetArticle: string): Lobby {
     const lobby: Lobby = {
       id: uuidv4(),
@@ -51,6 +54,13 @@ export class LobbyManager {
     };
     this.lobbies.set(lobby.id, lobby);
     this.moveChains.set(lobby.id, { head: null, tail: null });
+    this.persist.insertLobbyRow({
+      id: lobby.id,
+      startarticle: lobby.startArticle,
+      targetarticle: lobby.targetArticle,
+      playercount: lobby.maxPlayers,
+      createdat: lobby.createdAt,
+    });
     return lobby;
   }
 
@@ -303,6 +313,8 @@ export class LobbyManager {
     chain.tail.next = node;
     chain.tail = node;
 
+    this.persist.insertMoveRow(lobbyId, Date.now());
+
     this.broadcast(lobby, {
       type: 'move_made',
       payload: {
@@ -328,6 +340,14 @@ export class LobbyManager {
     lobby.status = 'finished';
     lobby.finishedAt = Date.now();
     lobby.winnerId = winnerId;
+
+    const snap = this.snapshot(lobby);
+    this.persist.finalizeLobbyRow({
+      id: lobby.id,
+      finishedat: lobby.finishedAt,
+      winningplayer: winnerId,
+      playersJson: JSON.stringify(snap.players),
+    });
 
     this.broadcast(lobby, {
       type: 'game_over',

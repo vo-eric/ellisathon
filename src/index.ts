@@ -3,6 +3,7 @@ import fs from 'fs';
 import http from 'http';
 import path from 'path';
 import WebSocket from 'ws';
+import { createLobbyPersistence } from './lobbyDb';
 import { LobbyManager } from './lobby';
 import { createRouter } from './routes';
 import { createWikiProxy } from './wikiProxy';
@@ -21,7 +22,7 @@ if (fs.existsSync(clientIndex)) {
   app.use(express.static(path.join(__dirname, '..', 'public')));
 }
 
-const manager = new LobbyManager();
+const manager = new LobbyManager(createLobbyPersistence());
 app.use('/api', createRouter(manager));
 app.use('/wiki', createWikiProxy());
 
