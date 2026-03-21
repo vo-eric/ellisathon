@@ -9,7 +9,8 @@ import {
   ServerMessage,
 } from './types';
 
-const MAX_PLAYERS = 1;
+const MAX_PLAYERS = 2;
+const COUNTDOWN_SECONDS = 5;
 
 function articlesMatch(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase();
@@ -26,16 +27,20 @@ type MoveChain = {
   tail: MoveListNode | null;
 };
 
+type CountdownToken = { cancelled: boolean };
+
 export class LobbyManager {
   private lobbies: Map<string, Lobby> = new Map();
-  /** Move path per lobby (linked list); key = lobby id */
   private moveChains: Map<string, MoveChain> = new Map();
+  private countdownTokens: Map<string, CountdownToken> = new Map();
 
   createLobby(startArticle: string, targetArticle: string): Lobby {
     const lobby: Lobby = {
       id: uuidv4(),
       status: 'waiting',
       players: [],
+      seats: Array.from({ length: MAX_PLAYERS }, () => null),
+      seatReady: Array.from({ length: MAX_PLAYERS }, () => false),
       createdAt: Date.now(),
       startedAt: null,
       finishedAt: null,
@@ -55,6 +60,26 @@ export class LobbyManager {
 
   private getChain(lobbyId: string): MoveChain | undefined {
     return this.moveChains.get(lobbyId);
+  }
+
+  /** Snapshot for clients: hide start article until game is in progress (or finished). */
+  snapshot(lobby: Lobby): LobbySnapshot {
+    const chain = this.getChain(lobby.id);
+    const moveChain = chain?.head ? this.serializeChain(chain.head) : null;
+    const hideStart = lobby.status === 'waiting';
+
+    return {
+      id: lobby.id,
+      status: lobby.status,
+      players: lobby.players.map((p) => ({ id: p.id, name: p.name })),
+      seats: [...lobby.seats],
+      seatReady: [...lobby.seatReady],
+      moveChain,
+      startArticle: hideStart ? null : lobby.startArticle,
+      targetArticle: lobby.targetArticle,
+      winnerId: lobby.winnerId,
+      maxPlayers: lobby.maxPlayers,
+    };
   }
 
   listLobbies(): LobbySnapshot[] {
@@ -86,6 +111,7 @@ export class LobbyManager {
       type: 'player_joined',
       payload: { playerId: player.id, name: player.name },
     });
+    this.broadcastLobbySync(lobby);
 
     return player;
   }
@@ -94,7 +120,16 @@ export class LobbyManager {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return;
 
+    this.cancelCountdown(lobbyId);
+
     lobby.players = lobby.players.filter((p) => p.id !== playerId);
+
+    for (let i = 0; i < lobby.seats.length; i++) {
+      if (lobby.seats[i] === playerId) {
+        lobby.seats[i] = null;
+        lobby.seatReady[i] = false;
+      }
+    }
 
     this.broadcast(lobby, {
       type: 'player_left',
@@ -104,14 +139,109 @@ export class LobbyManager {
     if (lobby.players.length === 0) {
       this.lobbies.delete(lobbyId);
       this.moveChains.delete(lobbyId);
+    } else {
+      this.broadcastLobbySync(lobby);
     }
   }
 
-  startGame(lobbyId: string): boolean {
+  claimSeat(lobbyId: string, playerId: string, seatIndex: number): boolean {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby || lobby.status !== 'waiting') return false;
+    if (!lobby.players.some((p) => p.id === playerId)) return false;
+    if (seatIndex < 0 || seatIndex >= lobby.seats.length) return false;
+    if (lobby.seats[seatIndex] !== null) return false;
+
+    this.cancelCountdown(lobbyId);
+
+    for (let i = 0; i < lobby.seats.length; i++) {
+      if (lobby.seats[i] === playerId) {
+        lobby.seats[i] = null;
+        lobby.seatReady[i] = false;
+      }
+    }
+    lobby.seats[seatIndex] = playerId;
+    lobby.seatReady[seatIndex] = false;
+
+    this.broadcastLobbySync(lobby);
+    this.tryBeginCountdown(lobbyId);
+    return true;
+  }
+
+  setSeatReady(lobbyId: string, playerId: string, ready: boolean): boolean {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby || lobby.status !== 'waiting') return false;
+
+    const seatIndex = lobby.seats.findIndex((id) => id === playerId);
+    if (seatIndex < 0) return false;
+
+    if (!ready) {
+      this.cancelCountdown(lobbyId);
+    }
+
+    lobby.seatReady[seatIndex] = ready;
+
+    this.broadcastLobbySync(lobby);
+    if (ready) {
+      this.tryBeginCountdown(lobbyId);
+    }
+    return true;
+  }
+
+  private allSeatedPlayersReady(lobby: Lobby): boolean {
+    if (lobby.players.length !== lobby.maxPlayers) return false;
+    if (!lobby.seats.every((s) => s !== null)) return false;
+    for (let i = 0; i < lobby.seats.length; i++) {
+      if (lobby.seats[i] === null) return false;
+      if (!lobby.seatReady[i]) return false;
+      const pid = lobby.seats[i];
+      if (!lobby.players.some((p) => p.id === pid)) return false;
+    }
+    return true;
+  }
+
+  private tryBeginCountdown(lobbyId: string): void {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby || lobby.status !== 'waiting') return;
+    if (!this.allSeatedPlayersReady(lobby)) return;
+    if (this.countdownTokens.has(lobbyId)) return;
+
+    const token: CountdownToken = { cancelled: false };
+    this.countdownTokens.set(lobbyId, token);
+
+    let s = COUNTDOWN_SECONDS;
+    const step = () => {
+      if (token.cancelled) {
+        this.countdownTokens.delete(lobbyId);
+        return;
+      }
+      if (s === 0) {
+        this.countdownTokens.delete(lobbyId);
+        this.actuallyStartGame(lobbyId);
+        return;
+      }
+      this.broadcast(lobby, {
+        type: 'countdown_tick',
+        payload: { secondsLeft: s },
+      });
+      s--;
+      setTimeout(step, 1000);
+    };
+    step();
+  }
+
+  private cancelCountdown(lobbyId: string): void {
+    const token = this.countdownTokens.get(lobbyId);
+    if (token) {
+      token.cancelled = true;
+      this.countdownTokens.delete(lobbyId);
+    }
+  }
+
+  private actuallyStartGame(lobbyId: string): boolean {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return false;
     if (lobby.status !== 'waiting') return false;
-    if (lobby.players.length < 1) return false;
+    if (lobby.players.length < MAX_PLAYERS) return false;
 
     const chain = this.getChain(lobbyId);
     if (!chain) return false;
@@ -221,20 +351,11 @@ export class LobbyManager {
     };
   }
 
-  snapshot(lobby: Lobby): LobbySnapshot {
-    const chain = this.getChain(lobby.id);
-    const moveChain = chain?.head ? this.serializeChain(chain.head) : null;
-
-    return {
-      id: lobby.id,
-      status: lobby.status,
-      players: lobby.players.map((p) => ({ id: p.id, name: p.name })),
-      moveChain,
-      startArticle: lobby.startArticle,
-      targetArticle: lobby.targetArticle,
-      winnerId: lobby.winnerId,
-      maxPlayers: lobby.maxPlayers,
-    };
+  broadcastLobbySync(lobby: Lobby): void {
+    this.broadcast(lobby, {
+      type: 'lobby_sync',
+      payload: this.snapshot(lobby),
+    });
   }
 
   broadcast(lobby: Lobby, message: ServerMessage): void {

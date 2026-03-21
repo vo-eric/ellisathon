@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MovesDevSidebar } from './components/MovesDevSidebar';
+import { WaitingRoom } from './components/WaitingRoom';
 import { appendMoveNode } from './moveChain';
 import type {
   LobbySnapshot,
@@ -31,6 +32,11 @@ export default function App() {
   const [playerName, setPlayerName] = useState('');
   const [lobbies, setLobbies] = useState<LobbySnapshot[]>([]);
   const [waitingInfo, setWaitingInfo] = useState('');
+  /** Full lobby while on waiting screen (players, seats, route). */
+  const [waitingLobby, setWaitingLobby] = useState<LobbySnapshot | null>(null);
+  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+  /** Server-driven pre-game countdown (5 → 1), then game_start. */
+  const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [creatingLobby, setCreatingLobby] = useState(false);
 
   const [gameTarget, setGameTarget] = useState('');
@@ -69,22 +75,34 @@ export default function App() {
     switch (msg.type) {
       case 'lobby_state':
         playerIdRef.current = msg.payload.playerId;
+        setMyPlayerId(msg.payload.playerId);
+        setWaitingLobby(msg.payload.lobby);
         setMoveChain(msg.payload.lobby.moveChain ?? null);
         break;
+      case 'lobby_sync':
+        setWaitingLobby(msg.payload);
+        setCountdownSeconds(null);
+        break;
+      case 'countdown_tick':
+        setCountdownSeconds(msg.payload.secondsLeft);
+        break;
       case 'player_joined':
-        setWaitingInfo(`${msg.payload.name} joined! Starting soon…`);
+        setWaitingInfo(`${msg.payload.name} joined the lobby.`);
         break;
       case 'player_left':
         setWaitingInfo('Opponent disconnected.');
         break;
       case 'game_start': {
         const lobby = msg.payload;
-        currentArticleRef.current = lobby.startArticle;
+        const start = lobby.startArticle ?? '';
+        setWaitingLobby(null);
+        setCountdownSeconds(null);
+        currentArticleRef.current = start;
         setGameTarget(lobby.targetArticle);
-        setGameCurrent(lobby.startArticle);
+        setGameCurrent(start);
         setMoveCount(0);
         setMoveChain(lobby.moveChain ?? null);
-        setIframeSrc('/wiki/' + encodeURIComponent(lobby.startArticle));
+        setIframeSrc('/wiki/' + encodeURIComponent(start));
         setScreen('game');
         break;
       }
@@ -139,7 +157,9 @@ export default function App() {
       wsRef.current = ws;
 
       ws.addEventListener('open', () => {
-        setWaitingInfo('Connected. Waiting for another player to join…');
+        setWaitingLobby(null);
+        setCountdownSeconds(null);
+        setWaitingInfo('Connected. Pick a seat when the lobby loads.');
         setScreen('waiting');
       });
 
@@ -223,9 +243,34 @@ export default function App() {
     wsRef.current = null;
     setIframeSrc(null);
     setMoveChain(null);
+    setWaitingLobby(null);
+    setMyPlayerId(null);
+    setCountdownSeconds(null);
     setScreen('lobbies');
     refreshLobbies();
   };
+
+  const claimSeat = useCallback((seatIndex: number) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(
+      JSON.stringify({
+        type: 'claim_seat',
+        payload: { seatIndex },
+      })
+    );
+  }, []);
+
+  const setReady = useCallback((ready: boolean) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(
+      JSON.stringify({
+        type: 'set_ready',
+        payload: { ready },
+      })
+    );
+  }, []);
 
   /* Vite dev: true. Production build on localhost:3000: false — still show sidebar locally. */
   const showMoveSidebar =
@@ -289,8 +334,8 @@ export default function App() {
                   <div key={lobby.id} className='lobby-card'>
                     <div className='lobby-meta'>
                       <div className='lobby-articles'>
-                        <strong>{lobby.startArticle}</strong> &rarr;{' '}
-                        <strong>{lobby.targetArticle}</strong>
+                        <span className='lobby-start-hidden'>Start hidden</span>{' '}
+                        &rarr; <strong>{lobby.targetArticle}</strong>
                       </div>
                       <div className='lobby-players'>
                         {lobby.players.length}/{lobby.maxPlayers} players
@@ -315,10 +360,35 @@ export default function App() {
             screen === 'waiting' ? 'active' : ''
           }`}
         >
-          <div className='card'>
-            <h2>Waiting for opponent…</h2>
-            <div className='waiting-info'>{waitingInfo}</div>
-            <div className='loader' />
+          {countdownSeconds !== null && (
+            <div className='countdown-overlay' role='status' aria-live='polite'>
+              <div className='countdown-overlay-inner'>
+                <p className='countdown-overlay-label'>Starting in</p>
+                <div className='countdown-overlay-number'>
+                  {countdownSeconds}
+                </div>
+                <p className='countdown-overlay-sub'>
+                  The start article will be revealed next
+                </p>
+              </div>
+            </div>
+          )}
+          <div className='card waiting-room-card'>
+            {waitingLobby ? (
+              <WaitingRoom
+                lobby={waitingLobby}
+                myPlayerId={myPlayerId}
+                statusLine={waitingInfo}
+                onClaimSeat={claimSeat}
+                onSetReady={setReady}
+              />
+            ) : (
+              <>
+                <h2>Connecting…</h2>
+                <p className='waiting-info'>{waitingInfo}</p>
+                <div className='loader' />
+              </>
+            )}
           </div>
         </div>
 
