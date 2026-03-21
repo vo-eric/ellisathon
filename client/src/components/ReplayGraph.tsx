@@ -30,6 +30,15 @@ const X_PAD = 100;
 const NODE_GAP = 32;
 const MIN_CENTER_GAP = NODE_W + NODE_GAP;
 
+/** Time-based viewBox: padding around visible nodes */
+const VB_MARGIN = 48;
+/** Min viewBox width matches legacy full canvas so load scale matches original 1000-wide frame */
+const STOCK_VB_W = SVG_W;
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.min(Math.max(n, lo), hi);
+}
+
 // Edge animation: total dash cycle length
 const DASH_LEN = 12;
 const GAP_LEN = 6;
@@ -159,7 +168,7 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
 
   const layout = useMemo(() => {
     if (p1Nodes.length === 0 && p2Nodes.length === 0) {
-      return { nodes: [], edges: [], svgW: SVG_W };
+      return { nodes: [], edges: [], svgW: SVG_W, vbX: 0, vbW: SVG_W };
     }
 
     const p1Set = new Set(p1Nodes.map((n) => norm(n.article)));
@@ -212,6 +221,11 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
       const p1t = p1Reach.get(key);
       const p2t = p2Reach.get(key);
 
+      const reached = vis(p1t) || vis(p2t);
+      // Start always shown; finish (and intermediates) only after replay reaches that move
+      const visible =
+        key === startKey || (key !== startKey && reached);
+
       nodeMap.set(key, {
         key,
         article: display,
@@ -220,7 +234,7 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
         y,
         lane,
         isAnchor,
-        visible: isAnchor || vis(p1t) || vis(p2t),
+        visible,
       });
     }
 
@@ -245,16 +259,28 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
     addEdges(p1Nodes, P1_COLOR, p1Reach);
     addEdges(p2Nodes, P2_COLOR, p2Reach);
 
-    return { nodes: Array.from(nodeMap.values()), edges, svgW };
+    const nodes = Array.from(nodeMap.values());
+    const shown = nodes.filter((n) => n.visible);
+    let vbX = 0;
+    let vbW = svgW;
+    if (shown.length > 0) {
+      const xs = shown.map((n) => n.x);
+      const xMinRaw = Math.min(...xs) - NODE_W / 2 - VB_MARGIN;
+      const xMaxRaw = Math.max(...xs) + NODE_W / 2 + VB_MARGIN;
+      vbW = clamp(xMaxRaw - xMinRaw, STOCK_VB_W, svgW);
+      vbX = clamp(xMinRaw, 0, svgW - vbW);
+    }
+
+    return { nodes, edges, svgW, vbX, vbW };
   }, [p1Nodes, p2Nodes, currentTimeMs, t0]);
 
   return (
     <>
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${layout.svgW} ${SVG_H}`}
+        viewBox={`${layout.vbX} 0 ${layout.vbW} ${SVG_H}`}
         width='100%'
-        style={{ minWidth: layout.svgW }}
+        preserveAspectRatio='xMidYMid meet'
         className='rg-svg'
         aria-label='Path diagram'
       >

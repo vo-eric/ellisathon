@@ -1011,14 +1011,17 @@ button:disabled {
 ═══════════════════════════════════════════════════════════════ */
 
 .results-graph-wrap {
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: visible;
 }
 
 .rg-svg {
   display: block;
   overflow: visible;
-  /* Baseline width on small viewports; ReplayGraph sets inline minWidth to svgW when the path is long */
-  min-width: 700px;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  /* viewBox + width 100% + meet: wide graphs scale down so the full diagram stays visible */
 }
 
 .rg-node {
