@@ -7,13 +7,22 @@ export interface Player {
   joinedAt: number;
 }
 
-export interface Move {
-  playerId: string;
-  /** The Wikipedia article title the player navigated to */
+/** Linked-list node for a lobby's move path */
+export interface MoveListNode {
   article: string;
-  timestamp: number;
-  /** Sequential move number (1-indexed) */
-  moveNumber: number;
+  url: string;
+  step: number;
+  next: MoveListNode | null;
+  end: boolean;
+}
+
+/** Serializable chain (nested JSON, no cycles in output) */
+export interface MoveListNodeSnapshot {
+  article: string;
+  url: string;
+  step: number;
+  end: boolean;
+  next: MoveListNodeSnapshot | null;
 }
 
 export type LobbyStatus = 'waiting' | 'in_progress' | 'finished';
@@ -22,8 +31,6 @@ export interface Lobby {
   id: string;
   status: LobbyStatus;
   players: Player[];
-  /** Full move history per player, keyed by player ID */
-  moves: Map<string, Move[]>;
   createdAt: number;
   startedAt: number | null;
   finishedAt: number | null;
@@ -63,7 +70,8 @@ export interface LobbySnapshot {
   id: string;
   status: LobbyStatus;
   players: { id: string; name: string }[];
-  moves: Record<string, Move[]>;
+  /** Head of the move chain for this lobby (null before game starts) */
+  moveChain: MoveListNodeSnapshot | null;
   startArticle: string;
   targetArticle: string;
   winnerId: string | null;
