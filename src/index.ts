@@ -1,4 +1,5 @@
 import express from 'express';
+import fs from 'fs';
 import http from 'http';
 import path from 'path';
 import WebSocket from 'ws';
@@ -11,7 +12,14 @@ const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public')));
+
+const clientDist = path.join(__dirname, '..', 'client', 'dist');
+const clientIndex = path.join(clientDist, 'index.html');
+if (fs.existsSync(clientIndex)) {
+  app.use(express.static(clientDist));
+} else {
+  app.use(express.static(path.join(__dirname, '..', 'public')));
+}
 
 const manager = new LobbyManager();
 app.use('/api', createRouter(manager));
