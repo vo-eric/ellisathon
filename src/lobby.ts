@@ -1,18 +1,41 @@
 import { v4 as uuidv4 } from 'uuid';
 import WebSocket from 'ws';
-import { Lobby, LobbySnapshot, Move, Player, ServerMessage } from './types';
+import {
+  Lobby,
+  LobbySnapshot,
+  MoveListNode,
+  MoveListNodeSnapshot,
+  Player,
+  ServerMessage,
+} from './types';
 
 const MAX_PLAYERS = 1;
 
+function articlesMatch(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+/** Canonical English Wikipedia article URL for a page title */
+export function wikipediaArticleUrl(title: string): string {
+  const segment = title.trim().replace(/ /g, '_');
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(segment)}`;
+}
+
+type MoveChain = {
+  head: MoveListNode | null;
+  tail: MoveListNode | null;
+};
+
 export class LobbyManager {
   private lobbies: Map<string, Lobby> = new Map();
+  /** Move path per lobby (linked list); key = lobby id */
+  private moveChains: Map<string, MoveChain> = new Map();
 
   createLobby(startArticle: string, targetArticle: string): Lobby {
     const lobby: Lobby = {
       id: uuidv4(),
       status: 'waiting',
       players: [],
-      moves: new Map(),
       createdAt: Date.now(),
       startedAt: null,
       finishedAt: null,
@@ -22,11 +45,16 @@ export class LobbyManager {
       maxPlayers: MAX_PLAYERS,
     };
     this.lobbies.set(lobby.id, lobby);
+    this.moveChains.set(lobby.id, { head: null, tail: null });
     return lobby;
   }
 
   getLobby(lobbyId: string): Lobby | undefined {
     return this.lobbies.get(lobbyId);
+  }
+
+  private getChain(lobbyId: string): MoveChain | undefined {
+    return this.moveChains.get(lobbyId);
   }
 
   listLobbies(): LobbySnapshot[] {
@@ -53,7 +81,6 @@ export class LobbyManager {
     };
 
     lobby.players.push(player);
-    lobby.moves.set(player.id, []);
 
     this.broadcast(lobby, {
       type: 'player_joined',
@@ -68,7 +95,6 @@ export class LobbyManager {
     if (!lobby) return;
 
     lobby.players = lobby.players.filter((p) => p.id !== playerId);
-    lobby.moves.delete(playerId);
 
     this.broadcast(lobby, {
       type: 'player_left',
@@ -77,6 +103,7 @@ export class LobbyManager {
 
     if (lobby.players.length === 0) {
       this.lobbies.delete(lobbyId);
+      this.moveChains.delete(lobbyId);
     }
   }
 
@@ -86,53 +113,82 @@ export class LobbyManager {
     if (lobby.status !== 'waiting') return false;
     if (lobby.players.length < 1) return false;
 
+    const chain = this.getChain(lobbyId);
+    if (!chain) return false;
+
     lobby.status = 'in_progress';
     lobby.startedAt = Date.now();
 
-    for (const player of lobby.players) {
-      lobby.moves.set(player.id, [
-        {
-          playerId: player.id,
-          article: lobby.startArticle,
-          timestamp: Date.now(),
-          moveNumber: 1,
-        },
-      ]);
-    }
+    const url = wikipediaArticleUrl(lobby.startArticle);
+    const end = articlesMatch(lobby.startArticle, lobby.targetArticle);
+    const first: MoveListNode = {
+      article: lobby.startArticle,
+      url,
+      step: 1,
+      next: null,
+      end,
+    };
+    chain.head = first;
+    chain.tail = first;
 
     this.broadcast(lobby, {
       type: 'game_start',
       payload: this.snapshot(lobby),
     });
 
+    if (end && lobby.players[0]) {
+      this.finishGame(lobbyId, lobby.players[0].id);
+    }
+
     return true;
   }
 
-  recordMove(lobbyId: string, playerId: string, article: string): Move | null {
+  recordMove(
+    lobbyId: string,
+    playerId: string,
+    article: string,
+    url?: string
+  ): MoveListNode | null {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby || lobby.status !== 'in_progress') return null;
 
-    const playerMoves = lobby.moves.get(playerId);
-    if (!playerMoves) return null;
+    const chain = this.getChain(lobbyId);
+    if (!chain || !chain.tail) return null;
 
-    const move: Move = {
-      playerId,
+    const playerInLobby = lobby.players.some((p) => p.id === playerId);
+    if (!playerInLobby) return null;
+
+    const step = chain.tail.step + 1;
+    const resolvedUrl = url?.trim() || wikipediaArticleUrl(article);
+    const end = articlesMatch(article, lobby.targetArticle);
+
+    const node: MoveListNode = {
       article,
-      timestamp: Date.now(),
-      moveNumber: playerMoves.length + 1,
+      url: resolvedUrl,
+      step,
+      next: null,
+      end,
     };
-    playerMoves.push(move);
+
+    chain.tail.next = node;
+    chain.tail = node;
 
     this.broadcast(lobby, {
       type: 'move_made',
-      payload: { playerId, article, moveNumber: move.moveNumber },
+      payload: {
+        playerId,
+        article,
+        url: resolvedUrl,
+        step,
+        end,
+      },
     });
 
-    if (article.toLowerCase() === lobby.targetArticle.toLowerCase()) {
+    if (end) {
       this.finishGame(lobbyId, playerId);
     }
 
-    return move;
+    return node;
   }
 
   private finishGame(lobbyId: string, winnerId: string): void {
@@ -152,17 +208,28 @@ export class LobbyManager {
     });
   }
 
+  private serializeChain(
+    head: MoveListNode | null
+  ): MoveListNodeSnapshot | null {
+    if (!head) return null;
+    return {
+      article: head.article,
+      url: head.url,
+      step: head.step,
+      end: head.end,
+      next: this.serializeChain(head.next),
+    };
+  }
+
   snapshot(lobby: Lobby): LobbySnapshot {
-    const movesObj: Record<string, Move[]> = {};
-    lobby.moves.forEach((moves, pid) => {
-      movesObj[pid] = moves;
-    });
+    const chain = this.getChain(lobby.id);
+    const moveChain = chain?.head ? this.serializeChain(chain.head) : null;
 
     return {
       id: lobby.id,
       status: lobby.status,
       players: lobby.players.map((p) => ({ id: p.id, name: p.name })),
-      moves: movesObj,
+      moveChain,
       startArticle: lobby.startArticle,
       targetArticle: lobby.targetArticle,
       winnerId: lobby.winnerId,
