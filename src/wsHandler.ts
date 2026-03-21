@@ -43,10 +43,6 @@ export function handleWsConnection(
     },
   });
 
-  if (lobby.players.length === lobby.maxPlayers) {
-    manager.startGame(lobbyId);
-  }
-
   ws.on('message', (raw) => {
     handleMessage(raw, player, lobbyId, manager);
   });
@@ -74,6 +70,50 @@ function handleMessage(
   }
 
   switch (msg.type) {
+    case 'set_ready': {
+      const ready = msg.payload.ready;
+      if (typeof ready !== 'boolean') {
+        manager.sendTo(player, {
+          type: 'error',
+          payload: { message: 'set_ready requires boolean ready' },
+        });
+        return;
+      }
+      const ok = manager.setSeatReady(lobbyId, player.id, ready);
+      if (!ok) {
+        manager.sendTo(player, {
+          type: 'error',
+          payload: {
+            message:
+              'Cannot set ready (you must be seated, or game already started)',
+          },
+        });
+      }
+      break;
+    }
+
+    case 'claim_seat': {
+      const seatIndex = msg.payload.seatIndex;
+      if (typeof seatIndex !== 'number' || !Number.isInteger(seatIndex)) {
+        manager.sendTo(player, {
+          type: 'error',
+          payload: { message: 'claim_seat requires integer seatIndex' },
+        });
+        return;
+      }
+      const ok = manager.claimSeat(lobbyId, player.id, seatIndex);
+      if (!ok) {
+        manager.sendTo(player, {
+          type: 'error',
+          payload: {
+            message:
+              'Cannot claim that seat (taken, invalid index, or game already started)',
+          },
+        });
+      }
+      break;
+    }
+
     case 'move': {
       const article = msg.payload.article as string | undefined;
       if (!article) {

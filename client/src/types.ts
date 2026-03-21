@@ -12,8 +12,11 @@ export interface LobbySnapshot {
   id: string;
   status: LobbyStatus;
   players: { id: string; name: string }[];
+  seats: (string | null)[];
+  seatReady: boolean[];
   moveChain: MoveListNodeSnapshot | null;
-  startArticle: string;
+  /** null while waiting (start page hidden until countdown ends). */
+  startArticle: string | null;
   targetArticle: string;
   winnerId: string | null;
   maxPlayers: number;
@@ -21,8 +24,10 @@ export interface LobbySnapshot {
 
 export type ServerMessage =
   | { type: 'lobby_state'; payload: { playerId: string; lobby: LobbySnapshot } }
+  | { type: 'lobby_sync'; payload: LobbySnapshot }
   | { type: 'player_joined'; payload: { playerId: string; name: string } }
   | { type: 'player_left'; payload: { playerId: string } }
+  | { type: 'countdown_tick'; payload: { secondsLeft: number } }
   | { type: 'game_start'; payload: LobbySnapshot }
   | {
       type: 'move_made';

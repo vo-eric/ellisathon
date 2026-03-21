@@ -31,6 +31,13 @@ export interface Lobby {
   id: string;
   status: LobbyStatus;
   players: Player[];
+  /**
+   * Seat slots: length === maxPlayers.
+   * Each entry is the playerId in that seat, or null if empty.
+   */
+  seats: (string | null)[];
+  /** Ready flag per seat index (meaningful only when seats[i] is non-null). */
+  seatReady: boolean[];
   createdAt: number;
   startedAt: number | null;
   finishedAt: number | null;
@@ -44,12 +51,14 @@ export interface Lobby {
 
 // --- WebSocket message protocol ---
 
-export type ClientMessageType = 'move' | 'ready';
+export type ClientMessageType = 'move' | 'claim_seat' | 'set_ready';
 
 export type ServerMessageType =
   | 'lobby_state'
+  | 'lobby_sync'
   | 'player_joined'
   | 'player_left'
+  | 'countdown_tick'
   | 'game_start'
   | 'move_made'
   | 'game_over'
@@ -70,9 +79,14 @@ export interface LobbySnapshot {
   id: string;
   status: LobbyStatus;
   players: { id: string; name: string }[];
+  /** Seat index → playerId or null (same length as maxPlayers) */
+  seats: (string | null)[];
+  /** Ready per seat (same length as seats; only used when that seat is occupied). */
+  seatReady: boolean[];
   /** Head of the move chain for this lobby (null before game starts) */
   moveChain: MoveListNodeSnapshot | null;
-  startArticle: string;
+  /** Hidden (null) while status is `waiting`; revealed after countdown when game starts. */
+  startArticle: string | null;
   targetArticle: string;
   winnerId: string | null;
   maxPlayers: number;
