@@ -83,7 +83,8 @@ function handleMessage(
         });
         return;
       }
-      const move = manager.recordMove(lobbyId, player.id, article);
+      const url = msg.payload.url as string | undefined;
+      const move = manager.recordMove(lobbyId, player.id, article, url);
       if (!move) {
         manager.sendTo(player, {
           type: 'error',
