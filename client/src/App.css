@@ -1017,6 +1017,7 @@ button:disabled {
 .rg-svg {
   display: block;
   overflow: visible;
+  /* Baseline width on small viewports; ReplayGraph sets inline minWidth to svgW when the path is long */
   min-width: 700px;
 }
 

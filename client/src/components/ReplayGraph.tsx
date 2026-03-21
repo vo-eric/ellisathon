@@ -26,6 +26,10 @@ const STROKE_W = 2;
 // Left/right padding
 const X_PAD = 100;
 
+/** Minimum center-to-center spacing so pills (NODE_W) do not overlap */
+const NODE_GAP = 32;
+const MIN_CENTER_GAP = NODE_W + NODE_GAP;
+
 // Edge animation: total dash cycle length
 const DASH_LEN = 12;
 const GAP_LEN = 6;
@@ -155,7 +159,7 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
 
   const layout = useMemo(() => {
     if (p1Nodes.length === 0 && p2Nodes.length === 0) {
-      return { nodes: [], edges: [] };
+      return { nodes: [], edges: [], svgW: SVG_W };
     }
 
     const p1Set = new Set(p1Nodes.map((n) => norm(n.article)));
@@ -191,10 +195,14 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
     }
     const ordered = Array.from(seen.entries());
 
-    const usableW = SVG_W - X_PAD * 2;
-    const xStep = ordered.length > 1 ? usableW / (ordered.length - 1) : 0;
+    const span =
+      ordered.length > 1 ? (ordered.length - 1) * MIN_CENTER_GAP : 0;
+    const contentW = X_PAD * 2 + span;
+    const svgW = Math.max(SVG_W, contentW);
     const xOf = new Map<string, number>();
-    ordered.forEach(([key], i) => xOf.set(key, X_PAD + i * xStep));
+    ordered.forEach(([key], i) =>
+      xOf.set(key, X_PAD + i * MIN_CENTER_GAP)
+    );
 
     const nodeMap = new Map<string, LayoutNode>();
     for (const [key, display] of ordered) {
@@ -237,15 +245,16 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
     addEdges(p1Nodes, P1_COLOR, p1Reach);
     addEdges(p2Nodes, P2_COLOR, p2Reach);
 
-    return { nodes: Array.from(nodeMap.values()), edges };
+    return { nodes: Array.from(nodeMap.values()), edges, svgW };
   }, [p1Nodes, p2Nodes, currentTimeMs, t0]);
 
   return (
     <>
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+        viewBox={`0 0 ${layout.svgW} ${SVG_H}`}
         width='100%'
+        style={{ minWidth: layout.svgW }}
         className='rg-svg'
         aria-label='Path diagram'
       >
