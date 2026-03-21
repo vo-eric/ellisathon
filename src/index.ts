@@ -4,6 +4,7 @@ import http from 'http';
 import path from 'path';
 import WebSocket from 'ws';
 import type { ViteDevServer } from 'vite';
+import { createLobbyPersistence } from './lobbyDb';
 import { LobbyManager } from './lobby';
 import { createRouter } from './routes';
 import { createWikiProxy } from './wikiProxy';
@@ -19,7 +20,7 @@ async function start(): Promise<void> {
   const app = express();
   app.use(express.json());
 
-  const manager = new LobbyManager();
+  const manager = new LobbyManager(createLobbyPersistence());
   app.use('/api', createRouter(manager));
   app.use('/wiki', createWikiProxy());
 
