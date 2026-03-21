@@ -1,0 +1,39 @@
+import { Router, Request, Response } from 'express';
+
+const WIKI_BASE = 'https://en.wikipedia.org';
+
+export function createWikiProxy(): Router {
+  const router = Router();
+
+  router.get('/*path', async (req: Request, res: Response) => {
+    const wikiPath = req.originalUrl.replace(/^\/wiki/, '');
+    const targetUrl = `${WIKI_BASE}/wiki${wikiPath}`;
+
+    try {
+      const wikiRes = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'WikiSpeedrun/1.0 (hackathon project)',
+          Accept: 'text/html',
+        },
+        redirect: 'follow',
+      });
+
+      const contentType = wikiRes.headers.get('content-type') || 'text/html';
+      res.setHeader('Content-Type', contentType);
+
+      const html = await wikiRes.text();
+
+      const rewritten = html
+        .replace(/href="\/wiki\//g, 'href="/wiki/')
+        .replace(/href="\/w\//g, `href="${WIKI_BASE}/w/`)
+        .replace(/href="\/\/upload/g, `href="https://upload`);
+
+      res.send(rewritten);
+    } catch (err) {
+      console.error('Wiki proxy error:', err);
+      res.status(502).send('Failed to load Wikipedia page.');
+    }
+  });
+
+  return router;
+}
