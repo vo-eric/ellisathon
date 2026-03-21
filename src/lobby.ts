@@ -271,6 +271,17 @@ export class LobbyManager {
     chain.head = first;
     chain.tail = first;
 
+    const t0 = Date.now();
+    this.persist.insertMoveRow({
+      lobbyid: lobbyId,
+      step: 1,
+      article: lobby.startArticle,
+      url,
+      end,
+      playerid: null,
+      createdat: t0,
+    });
+
     this.broadcast(lobby, {
       type: 'game_start',
       payload: this.snapshot(lobby),
@@ -313,7 +324,16 @@ export class LobbyManager {
     chain.tail.next = node;
     chain.tail = node;
 
-    this.persist.insertMoveRow(lobbyId, Date.now());
+    const t = Date.now();
+    this.persist.insertMoveRow({
+      lobbyid: lobbyId,
+      step,
+      article,
+      url: resolvedUrl,
+      end,
+      playerid: playerId,
+      createdat: t,
+    });
 
     this.broadcast(lobby, {
       type: 'move_made',
