@@ -4,6 +4,9 @@ import type { PlayerPath, ReplayNode } from '../hooks/useReplay';
 import { ReplayTimeline } from './ReplayTimeline';
 import { ReplayGraph } from './ReplayGraph';
 
+// ─── Seat colours (p1 → p4) ──────────────────────────────────────────────────
+export const SEAT_COLORS = ['#FBD860', '#FDA9BC', '#C7F7C9', '#F0C8FF'];
+
 // ─── Embedded sample data (used when no live data is passed) ─────────────────
 // These mirror client/public/p1-path.json and p2-path.json exactly.
 
@@ -37,15 +40,15 @@ const SAMPLE_P2: PlayerPath = {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 type Props = {
-  p1?: PlayerPath;
-  p2?: PlayerPath;
+  /** Live per-player paths from a real game. Falls back to sample data if omitted. */
+  paths?: PlayerPath[];
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function ResultsPage({ p1: p1Prop, p2: p2Prop }: Props) {
-  const p1 = p1Prop ?? SAMPLE_P1;
-  const p2 = p2Prop ?? SAMPLE_P2;
+export default function ResultsPage({ paths }: Props) {
+  const p1 = paths?.[0] ?? SAMPLE_P1;
+  const p2 = paths?.[1] ?? SAMPLE_P2;
 
   // ── Merge all nodes for the timeline clock ──
   const allNodes: ReplayNode[] = useMemo(

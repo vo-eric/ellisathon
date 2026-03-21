@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MovesDevSidebar } from './components/MovesDevSidebar';
 import { WaitingRoom } from './components/WaitingRoom';
-import ResultsPage from './components/ResultsPage';
+import ResultsPage, { SEAT_COLORS } from './components/ResultsPage';
+import { TargetArticleChip } from './components/TargetArticleChip';
 import { appendMoveNode } from './moveChain';
+import type { PathMove, PlayerPath } from './hooks/useReplay';
 import type {
   LobbySnapshot,
   MoveListNodeSnapshot,
@@ -52,6 +54,12 @@ export default function App() {
   const [gameoverHtml, setGameoverHtml] = useState('');
 
   const [moveChain, setMoveChain] = useState<MoveListNodeSnapshot | null>(null);
+  // Per-player moves accumulated during a game, keyed by playerId
+  const [playerMoves, setPlayerMoves] = useState<Map<string, PathMove[]>>(new Map());
+  // Seat order at game start: seatIndex → playerId
+  const [gameSeatOrder, setGameSeatOrder] = useState<(string | null)[]>([]);
+  // Player name/id lookup for the current game
+  const [gamePlayers, setGamePlayers] = useState<{ id: string; name: string }[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const wikiRef = useRef<HTMLIFrameElement>(null);
@@ -301,22 +309,24 @@ export default function App() {
           }`}
         >
           <div className='card'>
-            <h1>Wiki Speedrun</h1>
+            <h1>wikirace</h1>
             <p className='subtitle'>
-              Race through Wikipedia. First to the target article wins.
+              7,141,000+ articles<br />
+              infinite ways to connect them
             </p>
             <form className='alias-form' onSubmit={onAliasSubmit}>
               <input
                 type='text'
-                placeholder='Enter your alias'
+                placeholder='enter your name'
                 maxLength={20}
                 autoComplete='off'
                 value={aliasInput}
                 onChange={(e) => setAliasInput(e.target.value)}
                 required
               />
-              <button type='submit'>Enter</button>
+              <button type='submit'>start</button>
             </form>
+            <p className='cover-footer'>by team pea</p>
           </div>
         </div>
 
@@ -415,7 +425,7 @@ export default function App() {
             </div>
             <div className='game-bar-right'>
               <span className='game-label'>Target</span>
-              <span className='game-article-name target'>{gameTarget}</span>
+              <TargetArticleChip title={gameTarget} />
             </div>
           </div>
           {iframeSrc !== null && (
@@ -454,7 +464,25 @@ export default function App() {
         {/* ── Results / replay screen ── */}
         {screen === 'results' && (
           <div className='screen active screen-results'>
-            <ResultsPage />
+            <ResultsPage
+              paths={
+                gameSeatOrder.length > 0
+                  ? gameSeatOrder
+                      .map((playerId, seatIndex) => {
+                        if (!playerId) return null;
+                        const player = gamePlayers.find((p) => p.id === playerId);
+                        if (!player) return null;
+                        return {
+                          playerId: player.id,
+                          playerName: player.name,
+                          color: SEAT_COLORS[seatIndex] ?? '#ccc',
+                          moves: playerMoves.get(player.id) ?? [],
+                        };
+                      })
+                      .filter((p): p is NonNullable<typeof p> => p !== null)
+                  : undefined
+              }
+            />
           </div>
         )}
       </div>
