@@ -10,7 +10,7 @@ import {
   ServerMessage,
 } from './types';
 
-const MAX_PLAYERS = 2;
+const MAX_PLAYERS = 1;
 const COUNTDOWN_SECONDS = 5;
 
 function articlesMatch(a: string, b: string): boolean {
