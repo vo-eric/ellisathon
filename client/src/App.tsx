@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MovesDevSidebar } from './components/MovesDevSidebar';
 import { WaitingRoom } from './components/WaitingRoom';
 import ResultsPage from './components/ResultsPage';
+import { TargetArticleChip } from './components/TargetArticleChip';
 import { moveChainToResultsPaths } from './utils/resultsPaths';
 import { appendMoveNode } from './moveChain';
 import type {
@@ -313,22 +314,24 @@ export default function App() {
           }`}
         >
           <div className='card'>
-            <h1>Wiki Speedrun</h1>
+            <h1>wikirace</h1>
             <p className='subtitle'>
-              Race through Wikipedia. First to the target article wins.
+              7,141,000+ articles<br />
+              infinite ways to connect them
             </p>
             <form className='alias-form' onSubmit={onAliasSubmit}>
               <input
                 type='text'
-                placeholder='Enter your alias'
+                placeholder='enter your name'
                 maxLength={20}
                 autoComplete='off'
                 value={aliasInput}
                 onChange={(e) => setAliasInput(e.target.value)}
                 required
               />
-              <button type='submit'>Enter</button>
+              <button type='submit'>start</button>
             </form>
+            <p className='cover-footer'>by team pea</p>
           </div>
         </div>
 
@@ -427,7 +430,7 @@ export default function App() {
             </div>
             <div className='game-bar-right'>
               <span className='game-label'>Target</span>
-              <span className='game-article-name target'>{gameTarget}</span>
+              <TargetArticleChip title={gameTarget} />
             </div>
           </div>
           {iframeSrc !== null && (
@@ -466,7 +469,7 @@ export default function App() {
         {/* ── Results / replay screen ── */}
         {screen === 'results' && (
           <div className='screen active screen-results'>
-            <ResultsPage p1={resultsPaths.p1} p2={resultsPaths.p2} />
+            <ResultsPage paths={[resultsPaths.p1, resultsPaths.p2]} />
           </div>
         )}
       </div>

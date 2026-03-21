@@ -4,6 +4,9 @@ import type { PlayerPath, ReplayNode } from '../hooks/useReplay';
 import { ReplayTimeline } from './ReplayTimeline';
 import { ReplayGraph } from './ReplayGraph';
 
+// ─── Seat colours (p1 → p4) ──────────────────────────────────────────────────
+export const SEAT_COLORS = ['#FBD860', '#FDA9BC', '#C7F7C9', '#F0C8FF'];
+
 // ─── Embedded sample data (used when no live data is passed) ─────────────────
 // These mirror client/public/p1-path.json and p2-path.json exactly.
 
@@ -41,20 +44,20 @@ const SAMPLE_P2: PlayerPath = {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 type Props = {
-  p1?: PlayerPath;
-  p2?: PlayerPath;
+  /** Live per-player paths from a real game. Falls back to sample data if omitted. */
+  paths?: PlayerPath[];
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function ResultsPage({ p1: p1Prop, p2: p2Prop }: Props) {
-  const useLive = p1Prop !== undefined || p2Prop !== undefined;
+export default function ResultsPage({ paths }: Props) {
+  const useLive = paths !== undefined;
   const p1 = !useLive
     ? SAMPLE_P1
-    : (p1Prop ?? emptyPlayerPath('p1', 'Player 1', '#FDA9BC'));
+    : (paths[0] ?? emptyPlayerPath('p1', 'Player 1', SEAT_COLORS[0] ?? '#FBD860'));
   const p2 = !useLive
     ? SAMPLE_P2
-    : (p2Prop ?? emptyPlayerPath('p2', 'Player 2', '#FBD860'));
+    : (paths[1] ?? emptyPlayerPath('p2', 'Player 2', SEAT_COLORS[1] ?? '#FDA9BC'));
 
   const pathsForUi = useMemo(() => {
     if (!useLive) return [p1, p2];
