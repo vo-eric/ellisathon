@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MovesDevSidebar } from './components/MovesDevSidebar';
 import { WaitingRoom } from './components/WaitingRoom';
+import ResultsPage from './components/ResultsPage';
 import { appendMoveNode } from './moveChain';
 import type {
   LobbySnapshot,
@@ -8,7 +9,10 @@ import type {
   ServerMessage,
 } from './types';
 
-type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover';
+type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover' | 'results';
+
+// ── DEV: flip to true to land directly on the results page ──────────────────
+const DEV_RESULTS_PREVIEW = true;
 
 function escapeHtml(str: string): string {
   const div = document.createElement('div');
@@ -27,7 +31,7 @@ function transitionCountFromChain(chain: MoveListNodeSnapshot | null): number {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('alias');
+  const [screen, setScreen] = useState<Screen>(DEV_RESULTS_PREVIEW ? 'results' : 'alias');
   const [aliasInput, setAliasInput] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [lobbies, setLobbies] = useState<LobbySnapshot[]>([]);
@@ -250,6 +254,10 @@ export default function App() {
     refreshLobbies();
   };
 
+  const onViewResults = () => {
+    setScreen('results');
+  };
+
   const claimSeat = useCallback((seatIndex: number) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -432,11 +440,23 @@ export default function App() {
               className='gameover-info'
               dangerouslySetInnerHTML={{ __html: gameoverHtml }}
             />
-            <button type='button' onClick={onBackToLobbies}>
-              Back to Lobbies
-            </button>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button type='button' onClick={onBackToLobbies}>
+                Back to Lobbies
+              </button>
+              <button type='button' className='btn-primary' onClick={onViewResults}>
+                View Results
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* ── Results / replay screen ── */}
+        {screen === 'results' && (
+          <div className='screen active screen-results'>
+            <ResultsPage />
+          </div>
+        )}
       </div>
 
       <MovesDevSidebar moveChain={moveChain} visible={showMoveSidebar} />
