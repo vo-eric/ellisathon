@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MovesDevSidebar } from './components/MovesDevSidebar';
 import { WaitingRoom } from './components/WaitingRoom';
 import ResultsPage from './components/ResultsPage';
+import { moveChainToResultsPaths } from './utils/resultsPaths';
 import { appendMoveNode } from './moveChain';
 import type {
   LobbySnapshot,
@@ -10,9 +11,6 @@ import type {
 } from './types';
 
 type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover' | 'results';
-
-// ── DEV: flip to true to land directly on the results page ──────────────────
-const DEV_RESULTS_PREVIEW = true;
 
 function escapeHtml(str: string): string {
   const div = document.createElement('div');
@@ -52,6 +50,10 @@ export default function App() {
   const [gameoverHtml, setGameoverHtml] = useState('');
 
   const [moveChain, setMoveChain] = useState<MoveListNodeSnapshot | null>(null);
+  /** Client time when `game_start` arrived — used to space synthetic replay timestamps */
+  const [gameStartedAtMs, setGameStartedAtMs] = useState<number | null>(null);
+  /** Last finished game lobby (for player names / seats on results) */
+  const [finishedLobby, setFinishedLobby] = useState<LobbySnapshot | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const wikiRef = useRef<HTMLIFrameElement>(null);
@@ -101,6 +103,8 @@ export default function App() {
         const start = lobby.startArticle ?? '';
         setWaitingLobby(null);
         setCountdownSeconds(null);
+        setFinishedLobby(null);
+        setGameStartedAtMs(Date.now());
         currentArticleRef.current = start;
         setGameTarget(lobby.targetArticle);
         setGameCurrent(start);
@@ -134,6 +138,7 @@ export default function App() {
           )}</strong> in <strong>${tc}</strong> moves.`
         );
         setMoveChain(lobby.moveChain ?? null);
+        setFinishedLobby(lobby);
         setScreen('gameover');
         break;
       }
@@ -247,6 +252,8 @@ export default function App() {
     wsRef.current = null;
     setIframeSrc(null);
     setMoveChain(null);
+    setGameStartedAtMs(null);
+    setFinishedLobby(null);
     setWaitingLobby(null);
     setMyPlayerId(null);
     setCountdownSeconds(null);
@@ -291,6 +298,11 @@ export default function App() {
   ]
     .filter(Boolean)
     .join(' ');
+
+  const resultsPaths = useMemo(
+    () => moveChainToResultsPaths(moveChain, finishedLobby, gameStartedAtMs),
+    [moveChain, finishedLobby, gameStartedAtMs]
+  );
 
   return (
     <div className={layoutClass}>
@@ -454,7 +466,7 @@ export default function App() {
         {/* ── Results / replay screen ── */}
         {screen === 'results' && (
           <div className='screen active screen-results'>
-            <ResultsPage />
+            <ResultsPage p1={resultsPaths.p1} p2={resultsPaths.p2} />
           </div>
         )}
       </div>

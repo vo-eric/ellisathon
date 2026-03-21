@@ -822,6 +822,14 @@ button:disabled {
   gap: 48px;
 }
 
+.results-empty {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.95rem;
+  color: #333;
+  text-align: center;
+  padding: 48px 24px;
+}
+
 /* ── Scorecards: side-by-side, cream bg, name pill + big number ── */
 .results-scorecards {
   display: flex;
