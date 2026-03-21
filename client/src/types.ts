@@ -1,5 +1,10 @@
 export type LobbyStatus = 'waiting' | 'in_progress' | 'finished';
 
+export type Article = {
+  url: string;
+  title: string;
+};
+
 export interface MoveListNodeSnapshot {
   article: string;
   url: string;
@@ -16,8 +21,8 @@ export interface LobbySnapshot {
   seatReady: boolean[];
   moveChain: MoveListNodeSnapshot | null;
   /** null while waiting (start page hidden until countdown ends). */
-  startArticle: string | null;
-  targetArticle: string;
+  startArticle: Article | null;
+  targetArticle: Article;
   winnerId: string | null;
   maxPlayers: number;
 }

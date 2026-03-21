@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import WebSocket from 'ws';
 import {
+  Article,
   Lobby,
   LobbySnapshot,
   MoveListNode,
@@ -9,11 +10,35 @@ import {
   ServerMessage,
 } from './types';
 
-const MAX_PLAYERS = 2;
+const MAX_PLAYERS = 1;
 const COUNTDOWN_SECONDS = 5;
 
-function articlesMatch(a: string, b: string): boolean {
-  return a.toLowerCase() === b.toLowerCase();
+/**
+ * Same Wikipedia article as identified by the /wiki/... path (case- and
+ * underscore-insensitive). Works for canonical en.wikipedia.org URLs and for
+ * same-origin /wiki/... proxy URLs from the game iframe.
+ */
+function wikiUrlsMatch(a: string, b: string): boolean {
+  const pathKey = (url: string): string | null => {
+    try {
+      const u = new URL(url.trim());
+      const m = u.pathname.match(/^\/wiki\/(.+)$/);
+      if (!m) return null;
+      let seg = m[1];
+      try {
+        seg = decodeURIComponent(seg);
+      } catch {
+        /* use raw segment */
+      }
+      return seg.replace(/_/g, ' ').trim().toLowerCase();
+    } catch {
+      return null;
+    }
+  };
+  const ka = pathKey(a);
+  const kb = pathKey(b);
+  if (ka !== null && kb !== null) return ka === kb;
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 /** Canonical English Wikipedia article URL for a page title */
@@ -34,7 +59,7 @@ export class LobbyManager {
   private moveChains: Map<string, MoveChain> = new Map();
   private countdownTokens: Map<string, CountdownToken> = new Map();
 
-  createLobby(startArticle: string, targetArticle: string): Lobby {
+  createLobby(startArticle: Article, targetArticle: Article): Lobby {
     const lobby: Lobby = {
       id: uuidv4(),
       status: 'waiting',
@@ -44,8 +69,8 @@ export class LobbyManager {
       createdAt: Date.now(),
       startedAt: null,
       finishedAt: null,
-      startArticle,
-      targetArticle,
+      startArticle: { ...startArticle },
+      targetArticle: { ...targetArticle },
       winnerId: null,
       maxPlayers: MAX_PLAYERS,
     };
@@ -249,10 +274,10 @@ export class LobbyManager {
     lobby.status = 'in_progress';
     lobby.startedAt = Date.now();
 
-    const url = wikipediaArticleUrl(lobby.startArticle);
-    const end = articlesMatch(lobby.startArticle, lobby.targetArticle);
+    const url = lobby.startArticle.url;
+    const end = wikiUrlsMatch(url, lobby.targetArticle.url);
     const first: MoveListNode = {
-      article: lobby.startArticle,
+      article: lobby.startArticle.title,
       url,
       step: 1,
       next: null,
@@ -290,7 +315,7 @@ export class LobbyManager {
 
     const step = chain.tail.step + 1;
     const resolvedUrl = url?.trim() || wikipediaArticleUrl(article);
-    const end = articlesMatch(article, lobby.targetArticle);
+    const end = wikiUrlsMatch(resolvedUrl, lobby.targetArticle.url);
 
     const node: MoveListNode = {
       article,

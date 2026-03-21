@@ -1,21 +1,15 @@
 import vitalData from './vitalArticles.json';
+import type { Article } from './types';
 
-const vitalArticles = vitalData.articles;
-
-export interface RandomArticle {
-  id: number;
-  title: string;
-}
+const vitalArticles = vitalData.articles as Article[];
 
 export async function getRandomArticles(): Promise<{
-  start: RandomArticle;
-  target: RandomArticle;
+  start: Article;
+  target: Article;
 }> {
   const start = vitalArticles[Math.floor(Math.random() * vitalArticles.length)];
-  const target = vitalArticles[Math.floor(Math.random() * vitalArticles.length)];
+  const target =
+    vitalArticles[Math.floor(Math.random() * vitalArticles.length)];
 
-  return {
-    start: { id: 0, title: start.title },
-    target: { id: 0, title: target.title },
-  };
+  return { start, target };
 }

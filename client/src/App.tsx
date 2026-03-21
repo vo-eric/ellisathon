@@ -51,7 +51,8 @@ export default function App() {
 
   const wsRef = useRef<WebSocket | null>(null);
   const wikiRef = useRef<HTMLIFrameElement>(null);
-  const currentArticleRef = useRef('');
+  /** Last /wiki/... pathname seen in the iframe (avoids duplicate move sends). */
+  const lastWikiPathnameRef = useRef('');
   const playerIdRef = useRef<string | null>(null);
 
   const refreshLobbies = useCallback(async () => {
@@ -94,15 +95,24 @@ export default function App() {
         break;
       case 'game_start': {
         const lobby = msg.payload;
-        const start = lobby.startArticle ?? '';
+        const start = lobby.startArticle;
+        if (!start) break;
         setWaitingLobby(null);
         setCountdownSeconds(null);
-        currentArticleRef.current = start;
-        setGameTarget(lobby.targetArticle);
-        setGameCurrent(start);
+        try {
+          lastWikiPathnameRef.current = new URL(start.url).pathname;
+        } catch {
+          lastWikiPathnameRef.current = '';
+        }
+        setGameTarget(lobby.targetArticle.title);
+        setGameCurrent(start.title);
         setMoveCount(0);
         setMoveChain(lobby.moveChain ?? null);
-        setIframeSrc('/wiki/' + encodeURIComponent(start));
+        try {
+          setIframeSrc(new URL(start.url).pathname);
+        } catch {
+          setIframeSrc('/wiki/' + encodeURIComponent(start.title));
+        }
         setScreen('game');
         break;
       }
@@ -126,7 +136,7 @@ export default function App() {
           `<strong>${escapeHtml(
             winner?.name ?? 'Unknown'
           )}</strong> reached <strong>${escapeHtml(
-            lobby.targetArticle
+            lobby.targetArticle.title
           )}</strong> in <strong>${tc}</strong> moves.`
         );
         setMoveChain(lobby.moveChain ?? null);
@@ -214,11 +224,11 @@ export default function App() {
       const rawTitle = decodeURIComponent(pathname.replace('/wiki/', ''));
       const title = rawTitle.replace(/_/g, ' ');
 
-      if (title.toLowerCase() === currentArticleRef.current.toLowerCase()) {
+      if (pathname === lastWikiPathnameRef.current) {
         return;
       }
 
-      currentArticleRef.current = title;
+      lastWikiPathnameRef.current = pathname;
       setGameCurrent(title);
       setMoveCount((c) => c + 1);
 
@@ -335,7 +345,7 @@ export default function App() {
                     <div className='lobby-meta'>
                       <div className='lobby-articles'>
                         <span className='lobby-start-hidden'>Start hidden</span>{' '}
-                        &rarr; <strong>{lobby.targetArticle}</strong>
+                        &rarr; <strong>{lobby.targetArticle.title}</strong>
                       </div>
                       <div className='lobby-players'>
                         {lobby.players.length}/{lobby.maxPlayers} players
