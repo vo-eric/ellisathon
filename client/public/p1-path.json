@@ -1,0 +1,12 @@
+{
+  "playerId": "p1",
+  "playerName": "eric",
+  "color": "#FDA9BC",
+  "moves": [
+    { "article": "Pet",          "url": "https://en.wikipedia.org/wiki/Pet",                    "step": 1, "end": false, "timestamp": 1742558400000 },
+    { "article": "Dog",          "url": "https://en.wikipedia.org/wiki/Dog",                    "step": 2, "end": false, "timestamp": 1742558408000 },
+    { "article": "Mammal",       "url": "https://en.wikipedia.org/wiki/Mammal",                 "step": 3, "end": false, "timestamp": 1742558418000 },
+    { "article": "Cell biology", "url": "https://en.wikipedia.org/wiki/Cell_biology",           "step": 4, "end": false, "timestamp": 1742558430000 },
+    { "article": "Biochemistry", "url": "https://en.wikipedia.org/wiki/Biochemistry",           "step": 5, "end": true,  "timestamp": 1742558441000 }
+  ]
+}
