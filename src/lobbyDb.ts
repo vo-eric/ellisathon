@@ -4,6 +4,17 @@ import Database from 'better-sqlite3';
 
 const DB_FILE = path.join(process.cwd(), 'data', 'lobbies.sqlite');
 
+/** One row per chain node (same fields as `MoveListNodeSnapshot`, plus optional player). */
+export type MoveRow = {
+  lobbyid: string;
+  step: number;
+  article: string;
+  url: string;
+  end: boolean;
+  playerid: string | null;
+  createdat: number;
+};
+
 /** Best-effort SQLite history; methods no-op if the DB never opened. */
 export type LobbyPersistence = {
   insertLobbyRow: (row: {
@@ -13,7 +24,7 @@ export type LobbyPersistence = {
     playercount: number;
     createdat: number;
   }) => void;
-  insertMoveRow: (lobbyId: string, createdat: number) => void;
+  insertMoveRow: (row: MoveRow) => void;
   finalizeLobbyRow: (args: {
     id: string;
     finishedat: number;
@@ -39,16 +50,39 @@ function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS moves (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       lobbyid TEXT NOT NULL REFERENCES lobbies (id),
+      step INTEGER NOT NULL,
+      article TEXT NOT NULL,
+      url TEXT NOT NULL,
+      reachedtarget INTEGER NOT NULL,
+      playerid TEXT,
       createdat INTEGER NOT NULL
     );
   `);
+  migrateMovesTable(db);
+}
+
+/** Older DBs only had lobbyid + createdat; add columns in place. */
+function migrateMovesTable(db: Database.Database): void {
+  const cols = db.prepare(`PRAGMA table_info(moves)`).all() as { name: string }[];
+  if (cols.some((c) => c.name === 'step')) return;
+  try {
+    db.exec(`
+      ALTER TABLE moves ADD COLUMN step INTEGER;
+      ALTER TABLE moves ADD COLUMN article TEXT;
+      ALTER TABLE moves ADD COLUMN url TEXT;
+      ALTER TABLE moves ADD COLUMN reachedtarget INTEGER;
+      ALTER TABLE moves ADD COLUMN playerid TEXT;
+    `);
+  } catch (err) {
+    console.error('[lobbyDb] migrateMovesTable:', err);
+  }
 }
 
 /** In-memory-only games when you do not pass a real DB-backed persistence. */
 export function noopLobbyPersistence(): LobbyPersistence {
   return {
     insertLobbyRow: () => {},
-    insertMoveRow: () => {},
+    insertMoveRow: (_row: MoveRow) => {},
     finalizeLobbyRow: () => {},
   };
 }
@@ -69,7 +103,11 @@ export function createLobbyPersistence(): LobbyPersistence {
     `);
 
     const insMove = db.prepare(`
-      INSERT INTO moves (lobbyid, createdat) VALUES (@lobbyid, @createdat)
+      INSERT INTO moves (
+        lobbyid, step, article, url, reachedtarget, playerid, createdat
+      ) VALUES (
+        @lobbyid, @step, @article, @url, @reachedtarget, @playerid, @createdat
+      )
     `);
 
     const fin = db.prepare(`
@@ -92,8 +130,18 @@ export function createLobbyPersistence(): LobbyPersistence {
     return {
       insertLobbyRow: (row) =>
         run('insertLobbyRow', () => insLobby.run(row)),
-      insertMoveRow: (lobbyId, createdat) =>
-        run('insertMoveRow', () => insMove.run({ lobbyid: lobbyId, createdat })),
+      insertMoveRow: (row) =>
+        run('insertMoveRow', () =>
+          insMove.run({
+            lobbyid: row.lobbyid,
+            step: row.step,
+            article: row.article,
+            url: row.url,
+            reachedtarget: row.end ? 1 : 0,
+            playerid: row.playerid,
+            createdat: row.createdat,
+          })
+        ),
       finalizeLobbyRow: (args) =>
         run('finalizeLobbyRow', () => fin.run(args)),
     };
