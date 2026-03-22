@@ -765,6 +765,143 @@ button:disabled {
   flex-shrink: 0;
 }
 
+/* ── New game screen layout ── */
+
+.game-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.game-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg);
+}
+
+.game-timer {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: #111;
+  color: #faf8f0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  min-width: 70px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.game-player-capsules {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.game-player-capsule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.game-player-capsule-name {
+  font-weight: 500;
+  color: #111;
+}
+
+.game-player-capsule-count {
+  background: #111;
+  color: #faf8f0;
+  border-radius: 999px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.game-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.game-path-panel {
+  width: 220px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 14px;
+  overflow-y: auto;
+  gap: 6px;
+}
+
+.game-path-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.game-path-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.game-path-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.game-path-arrow {
+  display: flex;
+  justify-content: center;
+  color: var(--text-muted);
+  margin: -6px 0;
+}
+
+.game-path-bubble {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.game-path-bubble--endpoint {
+  background: #111;
+  color: #faf8f0;
+  border-color: #111;
+}
+
+.game-path-bubble--current {
+  font-weight: 600;
+  border-width: 2px;
+}
+
+
 .game-bar-left,
 .game-bar-right {
   display: flex;
