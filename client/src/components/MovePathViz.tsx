@@ -2,6 +2,7 @@ import { ChevronDown, Flag } from 'lucide-react';
 import { Fragment } from 'react';
 import { flattenMoveChain } from '../moveChainUtils';
 import type { MoveListNodeSnapshot } from '../types';
+import { wikiArticleHref } from '../utils/wikiUrl';
 
 type Props = {
   moveChain: MoveListNodeSnapshot | null;
@@ -25,8 +26,11 @@ export function MovePathViz({ moveChain }: Props) {
     <div className='move-path-viz' role='list' aria-label='Article path'>
       {nodes.map((node, i) => (
         <Fragment key={`${node.step}-${node.article}`}>
-          <div
+          <a
             role='listitem'
+            href={wikiArticleHref(node.url, node.article)}
+            target='_blank'
+            rel='noopener noreferrer'
             className={[
               'move-path-bubble',
               node.end ? 'move-path-bubble--goal' : '',
@@ -34,7 +38,6 @@ export function MovePathViz({ moveChain }: Props) {
             ]
               .filter(Boolean)
               .join(' ')}
-            title={node.url}
           >
             <span className='move-path-bubble-step'>#{node.step}</span>
             <span className='move-path-bubble-title'>{node.article}</span>
@@ -45,7 +48,7 @@ export function MovePathViz({ moveChain }: Props) {
                 aria-label='Target article'
               />
             )}
-          </div>
+          </a>
           {i < nodes.length - 1 && (
             <div className='move-path-arrow' aria-hidden>
               <ChevronDown size={22} strokeWidth={2.25} />

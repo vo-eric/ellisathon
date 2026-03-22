@@ -604,7 +604,7 @@ button:disabled {
   flex-wrap: wrap;
   gap: 24px;
   justify-content: center;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 
 .waiting-room-seat-column {
@@ -641,10 +641,19 @@ button:disabled {
   color: var(--red);
 }
 
+.waiting-room-ready-btn-slot {
+  width: 100%;
+  height: 40px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
 .waiting-room-ready-btn {
   width: 100%;
-  margin-top: 2px;
+  height: 100%;
   padding: 8px 10px;
+  box-sizing: border-box;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -653,6 +662,12 @@ button:disabled {
   font-weight: 700;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
+}
+
+.waiting-room-ready-btn--concealed {
+  opacity: 0;
+  pointer-events: none;
+  cursor: default;
 }
 
 .waiting-room-ready-btn:hover {
@@ -910,7 +925,6 @@ button:disabled {
   border-width: 2px;
 }
 
-
 .game-bar-left,
 .game-bar-right {
   display: flex;
@@ -989,7 +1003,7 @@ button:disabled {
 ═══════════════════════════════════════════════════════════════ */
 
 .screen-results {
-  background: #FEFAE8;
+  background: #fefae8;
   color: #111;
   overflow-y: auto;
   display: flex;
@@ -1161,7 +1175,9 @@ button:disabled {
   padding: 0;
   line-height: 1;
 }
-.rtl-marker:hover { transform: translateX(-50%) scale(1.2); }
+.rtl-marker:hover {
+  transform: translateX(-50%) scale(1.2);
+}
 
 .rtl-flag {
   font-size: 14px;
@@ -1241,7 +1257,7 @@ button:disabled {
   pointer-events: auto;
   z-index: 200;
   transform: translate(-50%, calc(-100% - 14px));
-  box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
 }
 .rg-tooltip::after {
   content: '';
@@ -1252,7 +1268,7 @@ button:disabled {
   border: 8px solid transparent;
   border-bottom: none;
   border-top-color: #fff;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.08));
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.08));
 }
 .rg-tooltip-title {
   display: block;
@@ -1275,8 +1291,15 @@ button:disabled {
 }
 
 @keyframes node-pop {
-  0%   { transform: scale(0.6); opacity: 0; }
-  70%  { transform: scale(1.06); }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
-

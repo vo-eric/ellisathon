@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, Fragment } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { PathMove } from '../hooks/useReplay';
+import { wikiArticleHref } from '../utils/wikiUrl';
 
 interface PlayerInfo {
   id: string;
@@ -96,16 +97,23 @@ export function GameScreen({
         <div className='game-path-panel'>
           <p className='game-path-label'>path</p>
           <p className='game-path-hint'>
-            articles visited in order<br />
-            the current one is<br />
+            articles visited in order
+            <br />
+            the current one is
+            <br />
             highlighted in your color
           </p>
 
           <div className='game-path-list'>
             {/* Start bubble — always black */}
-            <div className='game-path-bubble game-path-bubble--endpoint'>
+            <a
+              className='game-path-bubble game-path-bubble--endpoint'
+              href={wikiArticleHref(null, startArticle)}
+              target='_blank'
+              rel='noopener noreferrer'
+            >
               {startArticle}
-            </div>
+            </a>
 
             {/* Visited articles (step 2 onward, excluding the start which is step 1) */}
             {myMoves.slice(1).map((move, i) => {
@@ -116,7 +124,10 @@ export function GameScreen({
                   <div className='game-path-arrow' aria-hidden>
                     <ChevronDown size={18} strokeWidth={2} />
                   </div>
-                  <div
+                  <a
+                    href={wikiArticleHref(move.url, move.article)}
+                    target='_blank'
+                    rel='noopener noreferrer'
                     className={[
                       'game-path-bubble',
                       isCurrent ? 'game-path-bubble--current' : '',
@@ -126,7 +137,7 @@ export function GameScreen({
                     style={isCurrent ? { borderColor: myColor } : {}}
                   >
                     {move.article}
-                  </div>
+                  </a>
                 </Fragment>
               );
             })}
@@ -135,9 +146,14 @@ export function GameScreen({
             <div className='game-path-arrow' aria-hidden>
               <ChevronDown size={18} strokeWidth={2} />
             </div>
-            <div className='game-path-bubble game-path-bubble--endpoint'>
+            <a
+              className='game-path-bubble game-path-bubble--endpoint'
+              href={wikiArticleHref(null, targetArticle)}
+              target='_blank'
+              rel='noopener noreferrer'
+            >
               {targetArticle}
-            </div>
+            </a>
           </div>
         </div>
       </div>

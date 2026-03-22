@@ -133,20 +133,27 @@ export function WaitingRoom({
                   </div>
                 )}
 
-                {isMySeat && (
-                  <button
-                    type='button'
-                    className={[
-                      'waiting-room-ready-btn',
-                      readyHere ? 'waiting-room-ready-btn--active' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => onSetReady(!readyHere)}
-                  >
-                    {readyHere ? 'Unready' : 'Ready up'}
-                  </button>
-                )}
+                <div className='waiting-room-ready-btn-slot'>
+                  {!isEmpty && (
+                    <button
+                      type='button'
+                      className={[
+                        'waiting-room-ready-btn',
+                        readyHere ? 'waiting-room-ready-btn--active' : '',
+                        isMySeat ? '' : 'waiting-room-ready-btn--concealed',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      tabIndex={isMySeat ? 0 : -1}
+                      aria-hidden={!isMySeat}
+                      onClick={() => {
+                        if (isMySeat) onSetReady(!readyHere);
+                      }}
+                    >
+                      {readyHere ? 'Unready' : 'Ready up'}
+                    </button>
+                  )}
+                </div>
 
                 <span className='waiting-room-seat-label'>
                   Seat {seatIndex + 1}
