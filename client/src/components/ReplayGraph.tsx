@@ -1,4 +1,11 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import {
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useLayoutEffect,
+} from 'react';
 import type { ReplayNode } from '../hooks/useReplay';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -30,10 +37,8 @@ const X_PAD = 100;
 const NODE_GAP = 32;
 const MIN_CENTER_GAP = NODE_W + NODE_GAP;
 
-/** Time-based viewBox: padding around visible nodes */
-const VB_MARGIN = 48;
-/** Min viewBox width matches legacy full canvas so load scale matches original 1000-wide frame */
-const STOCK_VB_W = SVG_W;
+/** Padding when auto-scrolling to keep the newest visible node in view */
+const SCROLL_TAIL_MARGIN = 48;
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(Math.max(n, lo), hi);
@@ -134,6 +139,9 @@ type LayoutNode = {
   y: number;
   lane: Lane;
   isAnchor: boolean;
+  /** Both players visited this article; show split fill (non-anchor only). */
+  isSharedPath: boolean;
+  gradientId: string;
   visible: boolean;
 };
 
@@ -158,17 +166,27 @@ type Props = {
   p2Nodes: ReplayNode[];
   currentTimeMs: number;
   t0: number;
+  /** When true and time moves forward, scroll the strip to keep up with the replay. */
+  replayPlaying?: boolean;
 };
 
-export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
+export function ReplayGraph({
+  p1Nodes,
+  p2Nodes,
+  currentTimeMs,
+  t0,
+  replayPlaying = false,
+}: Props) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevTimeMsRef = useRef(currentTimeMs);
 
   const hideTooltip = useCallback(() => setTooltip(null), []);
 
   const layout = useMemo(() => {
     if (p1Nodes.length === 0 && p2Nodes.length === 0) {
-      return { nodes: [], edges: [], svgW: SVG_W, vbX: 0, vbW: SVG_W };
+      return { nodes: [], edges: [], svgW: SVG_W };
     }
 
     const p1Set = new Set(p1Nodes.map((n) => norm(n.article)));
@@ -218,6 +236,9 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
       const lane = laneOf(key);
       const y = lane === 'p1' ? ROW_P1 : lane === 'mid' ? ROW_MID : ROW_P2;
       const isAnchor = key === startKey || key === endKey;
+      const bothVisit = p1Set.has(key) && p2Set.has(key);
+      const isSharedPath = bothVisit && !isAnchor;
+      const gradientId = `rg-split-${key.replace(/[^a-zA-Z0-9_]/g, '_')}`;
       const p1t = p1Reach.get(key);
       const p2t = p2Reach.get(key);
 
@@ -234,6 +255,8 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
         y,
         lane,
         isAnchor,
+        isSharedPath,
+        gradientId,
         visible,
       });
     }
@@ -260,31 +283,64 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
     addEdges(p2Nodes, P2_COLOR, p2Reach);
 
     const nodes = Array.from(nodeMap.values());
-    const shown = nodes.filter((n) => n.visible);
-    let vbX = 0;
-    let vbW = svgW;
-    if (shown.length > 0) {
-      const xs = shown.map((n) => n.x);
-      const xMinRaw = Math.min(...xs) - NODE_W / 2 - VB_MARGIN;
-      const xMaxRaw = Math.max(...xs) + NODE_W / 2 + VB_MARGIN;
-      vbW = clamp(xMaxRaw - xMinRaw, STOCK_VB_W, svgW);
-      vbX = clamp(xMinRaw, 0, svgW - vbW);
+
+    return { nodes, edges, svgW };
+  }, [p1Nodes, p2Nodes, currentTimeMs, t0]);
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    if (currentTimeMs <= 0.001) {
+      el.scrollLeft = 0;
+      prevTimeMsRef.current = currentTimeMs;
+      return;
     }
 
-    return { nodes, edges, svgW, vbX, vbW };
-  }, [p1Nodes, p2Nodes, currentTimeMs, t0]);
+    const forward = currentTimeMs >= prevTimeMsRef.current - 0.001;
+    prevTimeMsRef.current = currentTimeMs;
+
+    const shown = layout.nodes.filter((n) => n.visible);
+    if (shown.length === 0) return;
+
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (maxScroll <= 0) return;
+
+    if (replayPlaying && forward) {
+      const rightEdge =
+        Math.max(...shown.map((n) => n.x + NODE_W / 2)) + SCROLL_TAIL_MARGIN;
+      el.scrollLeft = clamp(rightEdge - el.clientWidth, 0, maxScroll);
+    }
+  }, [layout, currentTimeMs, replayPlaying]);
 
   return (
     <>
-      <svg
-        ref={svgRef}
-        viewBox={`${layout.vbX} 0 ${layout.vbW} ${SVG_H}`}
-        width='100%'
-        preserveAspectRatio='xMidYMid meet'
-        className='rg-svg'
-        aria-label='Path diagram'
-      >
+      <div ref={scrollRef} className='rg-scroll-wrap'>
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${layout.svgW} ${SVG_H}`}
+          width={layout.svgW}
+          height={SVG_H}
+          className='rg-svg'
+          aria-label='Path diagram'
+        >
         <defs>
+          {layout.nodes
+            .filter((n) => n.isSharedPath)
+            .map((n) => (
+              <linearGradient
+                key={n.gradientId}
+                id={n.gradientId}
+                x1='0'
+                y1='0'
+                x2='1'
+                y2='0'
+                gradientUnits='objectBoundingBox'
+              >
+                <stop offset='0%' stopColor={P1_COLOR} />
+                <stop offset='100%' stopColor={P2_COLOR} />
+              </linearGradient>
+            ))}
           {/* Animated dash patterns — one marker per edge color */}
           {[P1_COLOR, P2_COLOR].map((color) => (
             <marker
@@ -336,7 +392,11 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
           if (!n.visible) return null;
           const label = n.article.length > 18 ? n.article.slice(0, 17) + '…' : n.article;
           const textColor = n.isAnchor ? '#fff' : '#111';
-          const fill = n.isAnchor ? ANCHOR_FILL : NODE_FILL;
+          const fill = n.isAnchor
+            ? ANCHOR_FILL
+            : n.isSharedPath
+              ? `url(#${n.gradientId})`
+              : NODE_FILL;
           const stroke = n.isAnchor ? ANCHOR_FILL : NODE_STROKE;
 
           return (
@@ -375,7 +435,8 @@ export function ReplayGraph({ p1Nodes, p2Nodes, currentTimeMs, t0 }: Props) {
             </g>
           );
         })}
-      </svg>
+        </svg>
+      </div>
 
       {/* ── Tooltip (rendered outside SVG so it can overflow) ── */}
       {tooltip && (

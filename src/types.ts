@@ -14,6 +14,8 @@ export interface MoveListNode {
   step: number;
   next: MoveListNode | null;
   end: boolean;
+  /** Who moved here; null on the shared start node. */
+  playerId: string | null;
 }
 
 /** Serializable chain (nested JSON, no cycles in output) */
@@ -23,6 +25,8 @@ export interface MoveListNodeSnapshot {
   step: number;
   end: boolean;
   next: MoveListNodeSnapshot | null;
+  /** Who moved here; null on the shared start node. Omitted in older persisted payloads. */
+  playerId?: string | null;
 }
 
 export type LobbyStatus = 'waiting' | 'in_progress' | 'finished';

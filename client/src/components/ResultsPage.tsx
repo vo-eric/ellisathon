@@ -153,6 +153,7 @@ export default function ResultsPage({ paths }: Props) {
           p2Nodes={p2Nodes}
           currentTimeMs={currentTimeMs}
           t0={t0}
+          replayPlaying={replay.playing}
         />
       </div>
     </div>

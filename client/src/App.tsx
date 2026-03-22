@@ -122,6 +122,7 @@ export default function App() {
             url: msg.payload.url,
             step: msg.payload.step,
             end: msg.payload.end,
+            playerId: msg.payload.playerId,
           })
         );
         break;

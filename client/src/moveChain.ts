@@ -8,6 +8,7 @@ export function appendMoveNode(
     url: string;
     step: number;
     end: boolean;
+    playerId: string;
   }
 ): MoveListNodeSnapshot | null {
   const newNode: MoveListNodeSnapshot = {
@@ -15,6 +16,7 @@ export function appendMoveNode(
     url: payload.url,
     step: payload.step,
     end: payload.end,
+    playerId: payload.playerId,
     next: null,
   };
   if (!head) return newNode;

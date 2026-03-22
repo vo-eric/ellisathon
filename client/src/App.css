@@ -1052,16 +1052,20 @@ button:disabled {
 
 .results-graph-wrap {
   width: 100%;
-  overflow-x: visible;
+}
+
+/* Horizontal scroll: graph keeps 1:1 node size; wide paths extend off-screen. */
+.rg-scroll-wrap {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
 }
 
 .rg-svg {
   display: block;
   overflow: visible;
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  /* viewBox + width 100% + meet: wide graphs scale down so the full diagram stays visible */
+  flex-shrink: 0;
 }
 
 .rg-node {

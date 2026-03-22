@@ -267,6 +267,7 @@ export class LobbyManager {
       step: 1,
       next: null,
       end,
+      playerId: null,
     };
     chain.head = first;
     chain.tail = first;
@@ -319,6 +320,7 @@ export class LobbyManager {
       step,
       next: null,
       end,
+      playerId,
     };
 
     chain.tail.next = node;
@@ -387,6 +389,7 @@ export class LobbyManager {
       url: head.url,
       step: head.step,
       end: head.end,
+      playerId: head.playerId,
       next: this.serializeChain(head.next),
     };
   }
