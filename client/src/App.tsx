@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MovesDevSidebar } from './components/MovesDevSidebar';
 import { WaitingRoom } from './components/WaitingRoom';
 import ResultsPage, { SEAT_COLORS } from './components/ResultsPage';
-import { TargetArticleChip } from './components/TargetArticleChip';
+import { GameScreen } from './components/GameScreen';
 import { appendMoveNode } from './moveChain';
-import type { PathMove, PlayerPath } from './hooks/useReplay';
+import type { PathMove } from './hooks/useReplay';
 import type {
   LobbySnapshot,
   MoveListNodeSnapshot,
@@ -46,6 +46,7 @@ export default function App() {
   const [creatingLobby, setCreatingLobby] = useState(false);
 
   const [gameTarget, setGameTarget] = useState('');
+  const [gameStartArticle, setGameStartArticle] = useState('');
   const [gameCurrent, setGameCurrent] = useState('');
   const [moveCount, setMoveCount] = useState(0);
   const [iframeSrc, setIframeSrc] = useState<string | null>(null);
@@ -111,10 +112,25 @@ export default function App() {
         setCountdownSeconds(null);
         currentArticleRef.current = start;
         setGameTarget(lobby.targetArticle);
+        setGameStartArticle(start);
         setGameCurrent(start);
         setMoveCount(0);
         setMoveChain(lobby.moveChain ?? null);
         setIframeSrc('/wiki/' + encodeURIComponent(start));
+        setGameSeatOrder(lobby.seats);
+        setGamePlayers(lobby.players);
+        // Seed every player's path with the start article as step 1
+        const seed = new Map<string, PathMove[]>();
+        for (const p of lobby.players) {
+          seed.set(p.id, [{
+            article: start,
+            url: `/wiki/${encodeURIComponent(start.replace(/ /g, '_'))}`,
+            step: 1,
+            end: false,
+            timestamp: Date.now(),
+          }]);
+        }
+        setPlayerMoves(seed);
         setScreen('game');
         break;
       }
@@ -127,6 +143,19 @@ export default function App() {
             end: msg.payload.end,
           })
         );
+        setPlayerMoves((prev) => {
+          const next = new Map(prev);
+          const pid = msg.payload.playerId;
+          const existing = next.get(pid) ?? [];
+          next.set(pid, [...existing, {
+            article: msg.payload.article,
+            url: msg.payload.url,
+            step: msg.payload.step,
+            end: msg.payload.end,
+            timestamp: Date.now(),
+          }]);
+          return next;
+        });
         break;
       case 'game_over': {
         const { winnerId, lobby } = msg.payload;
@@ -288,10 +317,12 @@ export default function App() {
     );
   }, []);
 
-  /* Vite dev: true. Production build on localhost:3000: false — still show sidebar locally. */
+  /* Vite dev: true. Production build on localhost:3000: false — still show sidebar locally.
+     Hide during the game screen — GameScreen has its own path panel. */
   const showMoveSidebar =
-    import.meta.env.DEV ||
-    ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    screen !== 'game' &&
+    (import.meta.env.DEV ||
+      ['localhost', '127.0.0.1'].includes(window.location.hostname));
 
   const layoutClass = [
     'app-layout',
@@ -303,11 +334,8 @@ export default function App() {
   return (
     <div className={layoutClass}>
       <div className='app-main'>
-        <div
-          className={`screen screen-alias ${
-            screen === 'alias' ? 'active' : ''
-          }`}
-        >
+        {/* ── Cover / alias screen ── */}
+        <div className={`screen screen-alias ${screen === 'alias' ? 'active' : ''}`}>
           <div className='card'>
             <h1>wikirace</h1>
             <p className='subtitle'>
@@ -330,15 +358,11 @@ export default function App() {
           </div>
         </div>
 
+        {/* ── Lobbies screen ── */}
         <div className={`screen ${screen === 'lobbies' ? 'active' : ''}`}>
           <div className='topbar'>
             <span className='player-name-display'>{playerName}</span>
-            <button
-              type='button'
-              className='btn-primary'
-              onClick={onCreateLobby}
-              disabled={creatingLobby}
-            >
+            <button type='button' className='btn-primary' onClick={onCreateLobby} disabled={creatingLobby}>
               {creatingLobby ? 'Creating…' : 'Create Lobby'}
             </button>
           </div>
@@ -359,11 +383,7 @@ export default function App() {
                         {lobby.players.length}/{lobby.maxPlayers} players
                       </div>
                     </div>
-                    <button
-                      type='button'
-                      className='btn-join'
-                      onClick={() => joinLobby(lobby.id)}
-                    >
+                    <button type='button' className='btn-join' onClick={() => joinLobby(lobby.id)}>
                       Join
                     </button>
                   </div>
@@ -373,21 +393,14 @@ export default function App() {
           </div>
         </div>
 
-        <div
-          className={`screen screen-waiting ${
-            screen === 'waiting' ? 'active' : ''
-          }`}
-        >
+        {/* ── Waiting room screen ── */}
+        <div className={`screen screen-waiting ${screen === 'waiting' ? 'active' : ''}`}>
           {countdownSeconds !== null && (
             <div className='countdown-overlay' role='status' aria-live='polite'>
               <div className='countdown-overlay-inner'>
                 <p className='countdown-overlay-label'>Starting in</p>
-                <div className='countdown-overlay-number'>
-                  {countdownSeconds}
-                </div>
-                <p className='countdown-overlay-sub'>
-                  The start article will be revealed next
-                </p>
+                <div className='countdown-overlay-number'>{countdownSeconds}</div>
+                <p className='countdown-overlay-sub'>The start article will be revealed next</p>
               </div>
             </div>
           )}
@@ -410,53 +423,44 @@ export default function App() {
           </div>
         </div>
 
-        <div
-          className={`screen screen-game ${screen === 'game' ? 'active' : ''}`}
-        >
-          <div className='game-bar'>
-            <div className='game-bar-left'>
-              <span className='game-label'>Current</span>
-              <span className='game-article-name'>{gameCurrent || '—'}</span>
-            </div>
-            <div className='game-bar-center'>
-              <span className='game-moves'>
-                {moveCount} move{moveCount !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className='game-bar-right'>
-              <span className='game-label'>Target</span>
-              <TargetArticleChip title={gameTarget} />
-            </div>
-          </div>
-          {iframeSrc !== null && (
-            <iframe
-              ref={wikiRef}
-              className='wiki-frame'
-              title='Wikipedia'
-              src={iframeSrc}
-              onLoad={onWikiFrameLoad}
+        {/* ── Game screen ── */}
+        {screen === 'game' && (
+          <div className='screen active screen-game'>
+            <GameScreen
+              myPlayerId={myPlayerId}
+              players={gameSeatOrder
+                .map((playerId, seatIndex) => {
+                  if (!playerId) return null;
+                  const player = gamePlayers.find((p) => p.id === playerId);
+                  if (!player) return null;
+                  const moves = playerMoves.get(playerId) ?? [];
+                  const finished = moves.some((m) => m.end);
+                  return {
+                    id: player.id,
+                    name: player.name,
+                    color: SEAT_COLORS[seatIndex] ?? '#ccc',
+                    moves,
+                    finished,
+                  };
+                })
+                .filter((p): p is NonNullable<typeof p> => p !== null)}
+              startArticle={gameStartArticle}
+              targetArticle={gameTarget}
+              iframeSrc={iframeSrc}
+              onWikiFrameLoad={onWikiFrameLoad}
+              wikiRef={wikiRef}
             />
-          )}
-        </div>
+          </div>
+        )}
 
-        <div
-          className={`screen screen-gameover ${
-            screen === 'gameover' ? 'active' : ''
-          }`}
-        >
+        {/* ── Game over screen ── */}
+        <div className={`screen screen-gameover ${screen === 'gameover' ? 'active' : ''}`}>
           <div className='card'>
             <h2>{gameoverTitle}</h2>
-            <div
-              className='gameover-info'
-              dangerouslySetInnerHTML={{ __html: gameoverHtml }}
-            />
+            <div className='gameover-info' dangerouslySetInnerHTML={{ __html: gameoverHtml }} />
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type='button' onClick={onBackToLobbies}>
-                Back to Lobbies
-              </button>
-              <button type='button' className='btn-primary' onClick={onViewResults}>
-                View Results
-              </button>
+              <button type='button' onClick={onBackToLobbies}>Back to Lobbies</button>
+              <button type='button' className='btn-primary' onClick={onViewResults}>View Results</button>
             </div>
           </div>
         </div>

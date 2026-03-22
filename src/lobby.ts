@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import WebSocket from 'ws';
 import { noopLobbyPersistence, type LobbyPersistence } from './lobbyDb';
 import {
@@ -39,7 +39,7 @@ export class LobbyManager {
 
   createLobby(startArticle: string, targetArticle: string): Lobby {
     const lobby: Lobby = {
-      id: uuidv4(),
+      id: randomUUID(),
       status: 'waiting',
       players: [],
       seats: Array.from({ length: MAX_PLAYERS }, () => null),
@@ -109,7 +109,7 @@ export class LobbyManager {
     if (lobby.players.length >= lobby.maxPlayers) return null;
 
     const player: Player = {
-      id: uuidv4(),
+      id: randomUUID(),
       name: playerName,
       ws,
       joinedAt: Date.now(),
