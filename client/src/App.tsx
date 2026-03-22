@@ -371,7 +371,10 @@ export default function App() {
               />
               <button type='submit'>start</button>
             </form>
-            <p className='cover-footer'>by team pea</p>
+            <div className='cover-footer'>
+              <img src='/peas.png' alt='peas' className='cover-footer-img' />
+              <p>by team pea</p>
+            </div>
           </div>
         </div>
 
