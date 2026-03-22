@@ -999,6 +999,14 @@ button:disabled {
   gap: 48px;
 }
 
+.results-empty {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.95rem;
+  color: #333;
+  text-align: center;
+  padding: 48px 24px;
+}
+
 /* ── Scorecards: side-by-side, cream bg, name pill + big number ── */
 .results-scorecards {
   display: flex;
@@ -1180,13 +1188,21 @@ button:disabled {
 ═══════════════════════════════════════════════════════════════ */
 
 .results-graph-wrap {
+  width: 100%;
+}
+
+/* Horizontal scroll: graph keeps 1:1 node size; wide paths extend off-screen. */
+.rg-scroll-wrap {
+  width: 100%;
   overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
 }
 
 .rg-svg {
   display: block;
   overflow: visible;
-  min-width: 700px;
+  flex-shrink: 0;
 }
 
 .rg-node {

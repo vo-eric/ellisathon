@@ -6,6 +6,8 @@ export interface MoveListNodeSnapshot {
   step: number;
   end: boolean;
   next: MoveListNodeSnapshot | null;
+  /** Who moved here; null on the shared start node. Omitted on older server payloads. */
+  playerId?: string | null;
 }
 
 export interface LobbySnapshot {

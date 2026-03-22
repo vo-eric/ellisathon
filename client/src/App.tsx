@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MovesDevSidebar } from './components/MovesDevSidebar';
 import { WaitingRoom } from './components/WaitingRoom';
-import ResultsPage, { SEAT_COLORS } from './components/ResultsPage';
+import ResultsPage from './components/ResultsPage';
 import { GameScreen } from './components/GameScreen';
+import { moveChainToResultsPaths } from './utils/resultsPaths';
 import { appendMoveNode } from './moveChain';
 import type { PathMove } from './hooks/useReplay';
 import type {
@@ -12,9 +13,6 @@ import type {
 } from './types';
 
 type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover' | 'results';
-
-// ── DEV: flip to true to land directly on the results page ──────────────────
-const DEV_RESULTS_PREVIEW = true;
 
 function escapeHtml(str: string): string {
   const div = document.createElement('div');
@@ -55,12 +53,10 @@ export default function App() {
   const [gameoverHtml, setGameoverHtml] = useState('');
 
   const [moveChain, setMoveChain] = useState<MoveListNodeSnapshot | null>(null);
-  // Per-player moves accumulated during a game, keyed by playerId
-  const [playerMoves, setPlayerMoves] = useState<Map<string, PathMove[]>>(new Map());
-  // Seat order at game start: seatIndex → playerId
-  const [gameSeatOrder, setGameSeatOrder] = useState<(string | null)[]>([]);
-  // Player name/id lookup for the current game
-  const [gamePlayers, setGamePlayers] = useState<{ id: string; name: string }[]>([]);
+  /** Client time when `game_start` arrived — used to space synthetic replay timestamps */
+  const [gameStartedAtMs, setGameStartedAtMs] = useState<number | null>(null);
+  /** Last finished game lobby (for player names / seats on results) */
+  const [finishedLobby, setFinishedLobby] = useState<LobbySnapshot | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const wikiRef = useRef<HTMLIFrameElement>(null);
@@ -110,6 +106,8 @@ export default function App() {
         const start = lobby.startArticle ?? '';
         setWaitingLobby(null);
         setCountdownSeconds(null);
+        setFinishedLobby(null);
+        setGameStartedAtMs(Date.now());
         currentArticleRef.current = start;
         setGameTarget(lobby.targetArticle);
         setGameStartArticle(start);
@@ -141,6 +139,7 @@ export default function App() {
             url: msg.payload.url,
             step: msg.payload.step,
             end: msg.payload.end,
+            playerId: msg.payload.playerId,
           })
         );
         setPlayerMoves((prev) => {
@@ -171,6 +170,7 @@ export default function App() {
           )}</strong> in <strong>${tc}</strong> moves.`
         );
         setMoveChain(lobby.moveChain ?? null);
+        setFinishedLobby(lobby);
         setScreen('gameover');
         break;
       }
@@ -284,6 +284,8 @@ export default function App() {
     wsRef.current = null;
     setIframeSrc(null);
     setMoveChain(null);
+    setGameStartedAtMs(null);
+    setFinishedLobby(null);
     setWaitingLobby(null);
     setMyPlayerId(null);
     setCountdownSeconds(null);
@@ -330,6 +332,11 @@ export default function App() {
   ]
     .filter(Boolean)
     .join(' ');
+
+  const resultsPaths = useMemo(
+    () => moveChainToResultsPaths(moveChain, finishedLobby, gameStartedAtMs),
+    [moveChain, finishedLobby, gameStartedAtMs]
+  );
 
   return (
     <div className={layoutClass}>
@@ -468,25 +475,7 @@ export default function App() {
         {/* ── Results / replay screen ── */}
         {screen === 'results' && (
           <div className='screen active screen-results'>
-            <ResultsPage
-              paths={
-                gameSeatOrder.length > 0
-                  ? gameSeatOrder
-                      .map((playerId, seatIndex) => {
-                        if (!playerId) return null;
-                        const player = gamePlayers.find((p) => p.id === playerId);
-                        if (!player) return null;
-                        return {
-                          playerId: player.id,
-                          playerName: player.name,
-                          color: SEAT_COLORS[seatIndex] ?? '#ccc',
-                          moves: playerMoves.get(player.id) ?? [],
-                        };
-                      })
-                      .filter((p): p is NonNullable<typeof p> => p !== null)
-                  : undefined
-              }
-            />
+            <ResultsPage paths={[resultsPaths.p1, resultsPaths.p2]} />
           </div>
         )}
       </div>

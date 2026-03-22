@@ -23,6 +23,10 @@ const SAMPLE_P1: PlayerPath = {
   ],
 };
 
+function emptyPlayerPath(playerId: string, playerName: string, color: string): PlayerPath {
+  return { playerId, playerName, color, moves: [] };
+}
+
 const SAMPLE_P2: PlayerPath = {
   playerId: 'p2',
   playerName: 'peter',
@@ -47,17 +51,33 @@ type Props = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ResultsPage({ paths }: Props) {
-  const p1 = paths?.[0] ?? SAMPLE_P1;
-  const p2 = paths?.[1] ?? SAMPLE_P2;
+  const useLive = paths !== undefined;
+  const p1 = !useLive
+    ? SAMPLE_P1
+    : (paths[0] ?? emptyPlayerPath('p1', 'Player 1', SEAT_COLORS[0] ?? '#FBD860'));
+  const p2 = !useLive
+    ? SAMPLE_P2
+    : (paths[1] ?? emptyPlayerPath('p2', 'Player 2', SEAT_COLORS[1] ?? '#FDA9BC'));
+
+  const pathsForUi = useMemo(() => {
+    if (!useLive) return [p1, p2];
+    return [p1, p2].filter((path) => path.moves.length > 0);
+  }, [useLive, p1, p2]);
 
   // ── Merge all nodes for the timeline clock ──
   const allNodes: ReplayNode[] = useMemo(
     () =>
-      [
-        ...p1.moves.map((m) => ({ ...m, playerId: p1.playerId, playerName: p1.playerName, color: p1.color })),
-        ...p2.moves.map((m) => ({ ...m, playerId: p2.playerId, playerName: p2.playerName, color: p2.color })),
-      ].sort((a, b) => a.timestamp - b.timestamp),
-    [p1, p2]
+      pathsForUi
+        .flatMap((path) =>
+          path.moves.map((m) => ({
+            ...m,
+            playerId: path.playerId,
+            playerName: path.playerName,
+            color: path.color,
+          }))
+        )
+        .sort((a, b) => a.timestamp - b.timestamp),
+    [pathsForUi]
   );
 
   const replay = useReplay(allNodes);
@@ -78,24 +98,29 @@ export default function ResultsPage({ paths }: Props) {
     color: p2.color,
   }));
 
-  // ── Move counts at current replay time ──
-  const p1Count = p1Nodes.filter((n) => n.timestamp - t0 <= currentTimeMs).length;
-  const p2Count = p2Nodes.filter((n) => n.timestamp - t0 <= currentTimeMs).length;
-
-  // ── Winner ──
-  const p1Done = p1Nodes.some((n) => n.end && n.timestamp - t0 <= currentTimeMs);
-  const p2Done = p2Nodes.some((n) => n.end && n.timestamp - t0 <= currentTimeMs);
-  void p1Done; void p2Done;
+  if (useLive && allNodes.length === 0) {
+    return (
+      <div className='results-page'>
+        <p className='results-empty'>No moves to replay yet. Finish a run and open results again.</p>
+      </div>
+    );
+  }
 
   return (
     <div className='results-page'>
 
       {/* ── SECTION 1: Scorecards — name pill + big move count ── */}
       <div className='results-scorecards'>
-        {[
-          { path: p1, count: p1Count, done: p1Done },
-          { path: p2, count: p2Count, done: p2Done },
-        ].map(({ path, count }) => (
+        {pathsForUi.map((path) => {
+          const nodes = path.moves.map((m) => ({
+            ...m,
+            playerId: path.playerId,
+            playerName: path.playerName,
+            color: path.color,
+          }));
+          const count = nodes.filter((n) => n.timestamp - t0 <= currentTimeMs).length;
+          return { path, count };
+        }).map(({ path, count }) => (
           <div key={path.playerId} className='results-card'>
             {/* Colored pill name badge */}
             <div
@@ -114,10 +139,11 @@ export default function ResultsPage({ paths }: Props) {
       <ReplayTimeline
         nodes={allNodes}
         replay={replay}
-        players={[
-          { id: p1.playerId, name: p1.playerName, color: p1.color },
-          { id: p2.playerId, name: p2.playerName, color: p2.color },
-        ]}
+        players={pathsForUi.map((path) => ({
+          id: path.playerId,
+          name: path.playerName,
+          color: path.color,
+        }))}
       />
 
       {/* ── SECTION 3: Path diagram ── */}
@@ -127,6 +153,7 @@ export default function ResultsPage({ paths }: Props) {
           p2Nodes={p2Nodes}
           currentTimeMs={currentTimeMs}
           t0={t0}
+          replayPlaying={replay.playing}
         />
       </div>
     </div>
