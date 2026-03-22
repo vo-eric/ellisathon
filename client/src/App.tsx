@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MovesDevSidebar } from './components/MovesDevSidebar';
 import { WaitingRoom } from './components/WaitingRoom';
-import ResultsPage from './components/ResultsPage';
+import ResultsPage, { SEAT_COLORS } from './components/ResultsPage';
 import { GameScreen } from './components/GameScreen';
 import { moveChainToResultsPaths } from './utils/resultsPaths';
 import { appendMoveNode } from './moveChain';
@@ -45,9 +45,16 @@ export default function App() {
 
   const [gameTarget, setGameTarget] = useState('');
   const [gameStartArticle, setGameStartArticle] = useState('');
-  const [gameCurrent, setGameCurrent] = useState('');
-  const [moveCount, setMoveCount] = useState(0);
+  const [, setGameCurrent] = useState('');
+  const [, setMoveCount] = useState(0);
   const [iframeSrc, setIframeSrc] = useState<string | null>(null);
+  const [gameSeatOrder, setGameSeatOrder] = useState<(string | null)[]>([]);
+  const [gamePlayers, setGamePlayers] = useState<{ id: string; name: string }[]>(
+    []
+  );
+  const [playerMoves, setPlayerMoves] = useState<Map<string, PathMove[]>>(
+    () => new Map()
+  );
 
   const [gameoverTitle, setGameoverTitle] = useState('');
   const [gameoverHtml, setGameoverHtml] = useState('');
@@ -283,6 +290,9 @@ export default function App() {
     wsRef.current?.close();
     wsRef.current = null;
     setIframeSrc(null);
+    setGameSeatOrder([]);
+    setGamePlayers([]);
+    setPlayerMoves(new Map());
     setMoveChain(null);
     setGameStartedAtMs(null);
     setFinishedLobby(null);
