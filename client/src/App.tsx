@@ -326,11 +326,7 @@ export default function App() {
       console.log('curren', currentArticleRef.current);
       // Ignore the initial iframe load of the seeded start article.
       // If a player later navigates back to start from another page, it will count.
-      if (
-        title.toLowerCase() === gameStartArticle.toLowerCase() &&
-        currentArticleRef.current.toLowerCase() ===
-          gameStartArticle.toLowerCase()
-      ) {
+      if (title.toLowerCase() === gameStartArticle.toLowerCase()) {
         return;
       }
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
