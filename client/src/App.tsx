@@ -341,7 +341,8 @@ export default function App() {
       }
 
       setMoveCount((c) => c + 1);
-    } catch {
+    } catch (e) {
+      console.log(e);
       return;
     }
   };
