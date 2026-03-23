@@ -324,6 +324,7 @@ export default function App() {
       const title = rawTitle.replace(/_/g, ' ');
       console.log('title replaced', title);
       console.log('curren', currentArticleRef.current);
+      console.log('game start article', gameStartArticle);
       // Ignore the initial iframe load of the seeded start article.
       // If a player later navigates back to start from another page, it will count.
       if (title.toLowerCase() === gameStartArticle.toLowerCase()) {
