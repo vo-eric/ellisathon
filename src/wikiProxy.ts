@@ -25,6 +25,10 @@ export function createWikiProxy(): Router {
 
       const rewritten = html
         .replace(/href="\/wiki\//g, 'href="/wiki/')
+        .replace(
+          /href="\/api\/rest_v1\/page\/summary\/([^"]+)"/g,
+          'href="/wiki/$1"'
+        )
         .replace(/href="\/w\//g, `href="${WIKI_BASE}/w/`)
         .replace(/href="\/\/upload/g, `href="https://upload`);
 

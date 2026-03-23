@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MovesDevSidebar } from './components/MovesDevSidebar';
 import { WaitingRoom } from './components/WaitingRoom';
 import ResultsPage, { SEAT_COLORS } from './components/ResultsPage';
 import { GameScreen } from './components/GameScreen';
@@ -260,9 +259,18 @@ export default function App() {
     if (!frame?.contentWindow) return;
     try {
       const pathname = frame.contentWindow.location.pathname;
-      if (!pathname.startsWith('/wiki/')) return;
-
-      const rawTitle = decodeURIComponent(pathname.replace('/wiki/', ''));
+      let rawTitle: string | null = null;
+      if (pathname.startsWith('/wiki/')) {
+        rawTitle = decodeURIComponent(pathname.replace('/wiki/', ''));
+      } else if (pathname.startsWith('/api/rest_v1/page/summary/')) {
+        // Some Wikipedia skins emit summary endpoint links; treat them as article clicks.
+        rawTitle = decodeURIComponent(
+          pathname.replace('/api/rest_v1/page/summary/', '')
+        );
+      } else {
+        return;
+      }
+      if (!rawTitle) return;
       const title = rawTitle.replace(/_/g, ' ');
 
       if (title.toLowerCase() === currentArticleRef.current.toLowerCase()) {
