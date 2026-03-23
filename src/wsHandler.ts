@@ -70,6 +70,11 @@ function handleMessage(
   }
 
   switch (msg.type) {
+    case 'ping': {
+      // Keepalive message from clients; no-op is enough to keep proxies warm.
+      break;
+    }
+
     case 'set_ready': {
       const ready = msg.payload.ready;
       if (typeof ready !== 'boolean') {
