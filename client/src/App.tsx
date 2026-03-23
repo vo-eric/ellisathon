@@ -279,6 +279,7 @@ export default function App() {
     console.log('inside onWikiFrameLoad');
     console.log('=========');
     const frame = wikiRef.current;
+    console.log('frame', frame);
     if (!frame?.contentWindow) return;
     try {
       const pathname = frame.contentWindow.location.pathname;
