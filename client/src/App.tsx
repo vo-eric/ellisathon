@@ -277,16 +277,26 @@ export default function App() {
   const onWikiFrameLoad = () => {
     const frame = wikiRef.current;
     console.log('frame!', frame);
-    if (!frame) return;
+    if (!frame) {
+      console.log('there is no frame');
+      return;
+    }
 
     try {
       const href = frame.contentWindow?.location?.href ?? frame.src;
+      console.log('FIUCK YOU', href);
       const url = new URL(href, window.location.href);
       console.log('location?!?!', url);
       console.log('origin', url.origin);
       console.log('pathname', url.pathname);
-      if (!href) return;
-      if (url.origin !== window.location.origin) return;
+      if (!href) {
+        console.log('there is no href');
+        return;
+      }
+      if (url.origin !== window.location.origin) {
+        console.log('there is no origin');
+        return;
+      }
 
       let rawTitle: string | null = null;
       if (url.pathname.startsWith('/wiki/')) {
@@ -296,11 +306,15 @@ export default function App() {
           url.pathname.replace('/api/rest_v1/page/summary/', '')
         );
       } else {
+        console.log('lol else fuck off');
         return;
       }
 
       console.log('raw title', rawTitle);
-      if (!rawTitle) return;
+      if (!rawTitle) {
+        console.log('no raw title');
+        return;
+      }
 
       const title = rawTitle.replace(/_/g, ' ');
       if (title.toLowerCase() === currentArticleRef.current.toLowerCase())
