@@ -167,6 +167,7 @@ export default function App() {
               timestamp: Date.now(),
             },
           ]);
+          console.log('next', next);
           return next;
         });
         break;
@@ -354,6 +355,8 @@ export default function App() {
     () => moveChainToResultsPaths(moveChain, finishedLobby, gameStartedAtMs),
     [moveChain, finishedLobby, gameStartedAtMs]
   );
+
+  console.log('results path', resultsPaths);
 
   return (
     <div className={layoutClass}>
