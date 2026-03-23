@@ -257,6 +257,7 @@ export default function App() {
   };
 
   const onWikiFrameLoad = () => {
+    console.log('hey?');
     const frame = wikiRef.current;
     if (!frame?.contentWindow) return;
     try {

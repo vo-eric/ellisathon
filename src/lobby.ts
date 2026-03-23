@@ -303,6 +303,7 @@ export class LobbyManager {
     article: string,
     url?: string
   ): MoveListNode | null {
+    console.log('inside record move');
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby || lobby.status !== 'in_progress') return null;
 
