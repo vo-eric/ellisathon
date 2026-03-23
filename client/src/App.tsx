@@ -70,6 +70,7 @@ export default function App() {
   const wikiRef = useRef<HTMLIFrameElement>(null);
   const currentArticleRef = useRef('');
   const lastProcessedPageUrlRef = useRef('');
+  const skippedInitialStartLoadRef = useRef(false);
   const playerIdRef = useRef<string | null>(null);
 
   const refreshLobbies = useCallback(async () => {
@@ -121,6 +122,7 @@ export default function App() {
         setFinishedLobby(null);
         setGameStartedAtMs(Date.now());
         currentArticleRef.current = start;
+        skippedInitialStartLoadRef.current = false;
         setGameTarget(lobby.targetArticle);
         setGameStartArticle(start);
         setGameCurrent(start);
@@ -325,9 +327,12 @@ export default function App() {
       console.log('title replaced', title);
       console.log('curren', currentArticleRef.current);
       console.log('game start article', gameStartArticle);
-      // Ignore the initial iframe load of the seeded start article.
-      // If a player later navigates back to start from another page, it will count.
-      if (title.toLowerCase() === gameStartArticle.toLowerCase()) {
+      // Ignore only the very first seeded start-page iframe load.
+      if (
+        !skippedInitialStartLoadRef.current &&
+        title.toLowerCase() === gameStartArticle.toLowerCase()
+      ) {
+        skippedInitialStartLoadRef.current = true;
         return;
       }
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
@@ -379,6 +384,7 @@ export default function App() {
     setWaitingLobby(null);
     setMyPlayerId(null);
     setCountdownSeconds(null);
+    skippedInitialStartLoadRef.current = false;
     setScreen('lobbies');
     refreshLobbies();
   };
