@@ -207,12 +207,25 @@ export default function App() {
     }
   }, []);
 
+
   const clearReconnectTimer = useCallback(() => {
     if (reconnectTimerRef.current !== null) {
       window.clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
   }, []);
+
+  const joinLobby = useCallback(
+    (lobbyId: string) => {
+      console.log('=========');
+      console.log('inside joinLobby');
+      console.log('=========');
+      const prev = wsRef.current;
+      if (prev) {
+        prev.close();
+        wsRef.current = null;
+      }
+
 
   const clearPingTimer = useCallback(() => {
     if (pingTimerRef.current !== null) {
