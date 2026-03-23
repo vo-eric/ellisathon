@@ -19,6 +19,34 @@ const clientIndex = path.join(clientDist, 'index.html');
 async function start(): Promise<void> {
   const app = express();
   app.use(express.json());
+  const corsAllowList = (process.env.CORS_ALLOW_ORIGINS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      const allowOrigin =
+        corsAllowList.length === 0 || corsAllowList.includes(origin);
+      if (allowOrigin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+      }
+    }
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+    );
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization'
+    );
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
 
   const manager = new LobbyManager(createLobbyPersistence());
   app.use('/api', createRouter(manager));
