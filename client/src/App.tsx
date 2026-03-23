@@ -70,6 +70,7 @@ export default function App() {
   const wsRef = useRef<WebSocket | null>(null);
   const wikiRef = useRef<HTMLIFrameElement>(null);
   const currentArticleRef = useRef('');
+  const lastProcessedPageUrlRef = useRef('');
   const playerIdRef = useRef<string | null>(null);
 
   const refreshLobbies = useCallback(async () => {
@@ -285,20 +286,21 @@ export default function App() {
     try {
       let href = frame.src;
       console.log('framesource', frame.src);
-      // try {
-      //   if (frame.contentWindow?.location?.href) {
-      //     href = frame.contentWindow.location.href;
-      //   }
-      // } catch {
-      //   console.log('cross-origin iframe; falling back to frame.src');
-      // }
+      try {
+        if (frame.contentWindow?.location?.href) {
+          href = frame.contentWindow.location.href;
+        }
+      } catch {
+        // Cross-origin iframe location reads can throw; fallback to frame.src.
+        console.log('cross-origin iframe; falling back to frame.src');
+      }
       console.log('FIUCK YOU', href);
       if (!href) {
         console.log('there is no href');
         // return;
       }
       const url = new URL(href, window.location.href);
-      console.log('location?!?!', url);
+      console.log('location?!?!', url.origin);
       console.log('origin', url.origin);
       console.log('pathname', url.pathname);
       if (url.origin !== window.location.origin) {
@@ -327,10 +329,12 @@ export default function App() {
       const title = rawTitle.replace(/_/g, ' ');
       console.log('title replaced', title);
       console.log('curren', currentArticleRef.current);
-      if (title.toLowerCase() === currentArticleRef.current.toLowerCase())
-        return;
-
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
+      console.log('page url', pageUrl);
+      console.log('last processed', lastProcessedPageUrlRef);
+      if (pageUrl === lastProcessedPageUrlRef.current) return;
+      lastProcessedPageUrlRef.current = pageUrl;
+
       const isTargetUrl = title.toLowerCase() === gameTarget.toLowerCase();
 
       currentArticleRef.current = title;
@@ -338,8 +342,11 @@ export default function App() {
 
       const ws = wsRef.current;
       console.log('SOCKET TO ME', ws);
-      if (ws?.readyState !== WebSocket.OPEN) return;
-      ws.send(
+      if (ws?.readyState !== WebSocket.OPEN) {
+        console.log('lol no socket fuck you');
+        // return;
+      }
+      ws!.send(
         JSON.stringify({
           type: 'move',
           payload: { article: title, url: pageUrl },
