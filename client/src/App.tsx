@@ -31,6 +31,8 @@ function transitionCountFromChain(chain: MoveListNodeSnapshot | null): number {
 }
 
 export default function App() {
+  const MAX_RECONNECT_ATTEMPTS = 4;
+  const PING_INTERVAL_MS = 25000;
   const [screen, setScreen] = useState<Screen>('alias');
   const [aliasInput, setAliasInput] = useState('');
   const [playerName, setPlayerName] = useState('');
@@ -68,6 +70,11 @@ export default function App() {
   );
 
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const pingTimerRef = useRef<number | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const activeLobbyIdRef = useRef<string | null>(null);
+  const manualCloseRef = useRef(false);
   const wikiRef = useRef<HTMLIFrameElement>(null);
   const currentArticleRef = useRef('');
   const playerIdRef = useRef<string | null>(null);
@@ -147,7 +154,6 @@ export default function App() {
         break;
       }
       case 'move_made':
-        console.log('WE DID A THING');
         setMoveChain((prev) =>
           appendMoveNode(prev, {
             article: msg.payload.article,
@@ -174,7 +180,6 @@ export default function App() {
               timestamp: Date.now(),
             },
           ]);
-          console.log('next', next);
           return next;
         });
         break;
@@ -202,6 +207,14 @@ export default function App() {
     }
   }, []);
 
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
   const joinLobby = useCallback(
     (lobbyId: string) => {
       console.log('=========');
@@ -213,11 +226,35 @@ export default function App() {
         wsRef.current = null;
       }
 
+
+  const clearPingTimer = useCallback(() => {
+    if (pingTimerRef.current !== null) {
+      window.clearInterval(pingTimerRef.current);
+      pingTimerRef.current = null;
+    }
+  }, []);
+
+  const startPing = useCallback(() => {
+    clearPingTimer();
+    pingTimerRef.current = window.setInterval(() => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: 'ping', payload: {} }));
+    }, PING_INTERVAL_MS);
+  }, [clearPingTimer]);
+
+  const connectLobbySocket = useCallback(
+    (lobbyId: string) => {
+      console.log('=========');
+      console.log('inside joinLobby');
+      console.log('=========');
       const url = lobbyWebSocketUrl(lobbyId, playerName);
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
       ws.addEventListener('open', () => {
+        reconnectAttemptsRef.current = 0;
+        clearReconnectTimer();
         console.log('=========');
         console.log('inside ws open listener');
         console.log('=========');
@@ -225,6 +262,11 @@ export default function App() {
         setCountdownSeconds(null);
         setWaitingInfo('Connected. Pick a seat when the lobby loads.');
         setScreen('waiting');
+        startPing();
+      });
+
+      ws.addEventListener('error', () => {
+        setWaitingInfo('Connection issue detected. Retrying…');
       });
 
       ws.addEventListener('message', (event) => {
@@ -242,14 +284,67 @@ export default function App() {
         if (wsRef.current === ws) {
           wsRef.current = null;
         }
+        clearPingTimer();
+
         if (event.code >= 4000) {
           window.alert(event.reason || 'Could not join lobby.');
           setScreen('lobbies');
           refreshLobbies();
+          return;
         }
+        if (manualCloseRef.current) return;
+
+        const lobbyToReconnect = activeLobbyIdRef.current;
+        if (!lobbyToReconnect) return;
+        const shouldRetry =
+          screen === 'waiting' || screen === 'game' || screen === 'results';
+        if (!shouldRetry) return;
+
+        if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+          setWaitingInfo('Disconnected. Please rejoin a lobby.');
+          setScreen('lobbies');
+          refreshLobbies();
+          return;
+        }
+
+        reconnectAttemptsRef.current += 1;
+        const attempt = reconnectAttemptsRef.current;
+        const delayMs = Math.min(1000 * 2 ** (attempt - 1), 8000);
+        setWaitingInfo(`Reconnecting… (${attempt}/${MAX_RECONNECT_ATTEMPTS})`);
+        clearReconnectTimer();
+        reconnectTimerRef.current = window.setTimeout(() => {
+          connectLobbySocket(lobbyToReconnect);
+        }, delayMs);
       });
     },
-    [playerName, handleServerMessage, refreshLobbies]
+    [
+      playerName,
+      clearReconnectTimer,
+      clearPingTimer,
+      handleServerMessage,
+      refreshLobbies,
+      screen,
+      startPing,
+    ]
+  );
+
+  const joinLobby = useCallback(
+    (lobbyId: string) => {
+      const prev = wsRef.current;
+      manualCloseRef.current = true;
+      clearReconnectTimer();
+      clearPingTimer();
+      if (prev) {
+        prev.close();
+        wsRef.current = null;
+      }
+
+      activeLobbyIdRef.current = lobbyId;
+      reconnectAttemptsRef.current = 0;
+      manualCloseRef.current = false;
+      connectLobbySocket(lobbyId);
+    },
+    [clearReconnectTimer, clearPingTimer, connectLobbySocket]
   );
 
   const onAliasSubmit = (e: React.FormEvent) => {
@@ -337,6 +432,11 @@ export default function App() {
   };
 
   const onBackToLobbies = () => {
+    manualCloseRef.current = true;
+    clearReconnectTimer();
+    clearPingTimer();
+    activeLobbyIdRef.current = null;
+    reconnectAttemptsRef.current = 0;
     wsRef.current?.close();
     wsRef.current = null;
     setIframeSrc(null);
@@ -385,6 +485,16 @@ export default function App() {
     );
   }, []);
 
+  useEffect(() => {
+    return () => {
+      manualCloseRef.current = true;
+      clearReconnectTimer();
+      clearPingTimer();
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, [clearReconnectTimer, clearPingTimer]);
+
   /* Path sidebar only while the race is active. */
   const showMoveSidebar = screen === 'game';
 
@@ -399,8 +509,6 @@ export default function App() {
     () => moveChainToResultsPaths(moveChain, finishedLobby, gameStartedAtMs),
     [moveChain, finishedLobby, gameStartedAtMs]
   );
-
-  console.log('results path', resultsPaths);
 
   return (
     <div className={layoutClass}>
