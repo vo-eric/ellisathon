@@ -276,6 +276,7 @@ export default function App() {
 
   const onWikiFrameLoad = () => {
     const frame = wikiRef.current;
+    console.log('frame', frame);
     if (!frame?.contentWindow) return;
 
     // If the iframe has navigated to a different origin, browser security blocks
