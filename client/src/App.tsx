@@ -3,7 +3,6 @@ import { WaitingRoom } from './components/WaitingRoom';
 import ResultsPage, { SEAT_COLORS } from './components/ResultsPage';
 import { GameScreen } from './components/GameScreen';
 import { moveChainToResultsPaths } from './utils/resultsPaths';
-import { appendMoveNode } from './moveChain';
 import type { PathMove } from './hooks/useReplay';
 import type {
   LobbySnapshot,
@@ -149,22 +148,18 @@ export default function App() {
       }
       case 'move_made':
         console.log('WE DID A THING');
-        setMoveChain((prev) =>
-          appendMoveNode(prev, {
-            article: msg.payload.article,
-            url: msg.payload.url,
-            step: msg.payload.step,
-            end: msg.payload.end,
-            playerId: msg.payload.playerId,
-          })
-        );
         setPlayerMoves((prev) => {
           console.log('=========');
           console.log('inside setPlayerMoves updater');
           console.log('=========');
           const next = new Map(prev);
           const pid = msg.payload.playerId;
+          if (!pid) return next;
           const existing = next.get(pid) ?? [];
+          const last = existing[existing.length - 1];
+          if (last && last.url === msg.payload.url) {
+            return next;
+          }
           next.set(pid, [
             ...existing,
             {
@@ -329,6 +324,15 @@ export default function App() {
       const title = rawTitle.replace(/_/g, ' ');
       console.log('title replaced', title);
       console.log('curren', currentArticleRef.current);
+      // Ignore the initial iframe load of the seeded start article.
+      // If a player later navigates back to start from another page, it will count.
+      if (
+        title.toLowerCase() === gameStartArticle.toLowerCase() &&
+        currentArticleRef.current.toLowerCase() ===
+          gameStartArticle.toLowerCase()
+      ) {
+        return;
+      }
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
       console.log('page url', pageUrl);
       console.log('last processed', lastProcessedPageUrlRef);
