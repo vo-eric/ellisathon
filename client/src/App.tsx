@@ -281,11 +281,11 @@ export default function App() {
 
     try {
       const href = frame.contentWindow?.location?.href ?? frame.src;
-      if (!href) return;
       const url = new URL(href, window.location.href);
-      console.log('location?!?!', url.origin);
+      console.log('location?!?!', url);
       console.log('origin', url.origin);
       console.log('pathname', url.pathname);
+      if (!href) return;
       if (url.origin !== window.location.origin) return;
 
       let rawTitle: string | null = null;
