@@ -282,7 +282,9 @@ export default function App() {
     try {
       const loc = frame.contentWindow.location;
       console.log('location', loc);
-      if (loc.origin !== window.location.origin) return;
+      console.log('origin', loc.origin);
+      console.log('pathname', loc.pathname);
+      // if (loc.origin !== window.location.origin) return;
       if (!loc.pathname.startsWith('/wiki/')) return;
 
       const rawTitle = decodeURIComponent(loc.pathname.replace('/wiki/', ''));
