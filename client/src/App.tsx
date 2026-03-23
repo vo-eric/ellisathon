@@ -326,7 +326,7 @@ export default function App() {
         );
       }
     } catch (err) {
-      console.log('inside catch block');
+      console.log('inside catch block', err);
       // Cross-origin iframe navigations are expected and cannot be introspected.
       if (
         err instanceof DOMException &&
