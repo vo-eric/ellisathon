@@ -276,7 +276,7 @@ export default function App() {
 
   const onWikiFrameLoad = () => {
     const frame = wikiRef.current;
-    console.log('frame!', frame);
+    console.log('frame!?', frame);
     if (!frame) {
       console.log('there is no frame');
       return;
