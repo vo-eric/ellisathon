@@ -275,31 +275,31 @@ export default function App() {
   };
 
   const onWikiFrameLoad = () => {
-    console.log('=========');
-    console.log('inside onWikiFrameLoad');
-    console.log('=========');
     const frame = wikiRef.current;
-    console.log('frame', frame?.contentWindow);
     if (!frame?.contentWindow) return;
+
+    // If the iframe has navigated to a different origin, browser security blocks
+    // access to contentWindow.location. Ignore these loads.
     try {
-      console.log('inside try');
+      const frameUrl = new URL(frame.src, window.location.href);
+      if (frameUrl.origin !== window.location.origin) return;
+    } catch {
+      return;
+    }
+
+    try {
       const pathname = frame.contentWindow.location.pathname;
       let rawTitle: string | null = null;
-      console.log('path name', pathname);
       if (pathname.startsWith('/wiki/')) {
         rawTitle = decodeURIComponent(pathname.replace('/wiki/', ''));
-        console.log('in if');
       } else if (pathname.startsWith('/api/rest_v1/page/summary/')) {
-        console.log('in else if');
         // Some Wikipedia skins emit summary endpoint links; treat them as article clicks.
         rawTitle = decodeURIComponent(
           pathname.replace('/api/rest_v1/page/summary/', '')
         );
       } else {
-        console.log('in else');
         return;
       }
-      console.log('raw title', rawTitle);
       if (!rawTitle) return;
       const title = rawTitle.replace(/_/g, ' ');
 
@@ -312,9 +312,6 @@ export default function App() {
       setMoveCount((c) => c + 1);
 
       const ws = wsRef.current;
-      console.log('**************');
-      console.log('websocket status', ws?.readyState);
-      console.log('**************');
       if (ws?.readyState === WebSocket.OPEN) {
         const loc = frame.contentWindow.location;
         const pageUrl = `${loc.origin}${loc.pathname}${loc.search}${loc.hash}`;
@@ -326,12 +323,21 @@ export default function App() {
         );
       }
     } catch (err) {
-      console.log('inside catch block', err);
       // Cross-origin iframe navigations are expected and cannot be introspected.
-      if (
-        err instanceof DOMException &&
-        (err.name === 'SecurityError' || err.name === 'PermissionDeniedError')
-      ) {
+      const name =
+        typeof err === 'object' && err !== null && 'name' in err
+          ? String((err as { name?: unknown }).name)
+          : '';
+      const message =
+        typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message?: unknown }).message)
+          : '';
+      const isCrossOriginError =
+        name === 'SecurityError' ||
+        name === 'PermissionDeniedError' ||
+        /cross-origin|permission denied/i.test(message);
+
+      if (isCrossOriginError) {
         return;
       }
       console.warn('Could not read iframe URL:', err);
