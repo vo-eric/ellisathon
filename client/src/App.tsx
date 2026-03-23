@@ -374,9 +374,10 @@ export default function App() {
     console.log('inside onWikiFrameLoad');
     console.log('=========');
     const frame = wikiRef.current;
-    console.log('frame', frame);
+    console.log('frame', frame?.contentWindow);
     if (!frame?.contentWindow) return;
     try {
+      console.log('inside try');
       const pathname = frame.contentWindow.location.pathname;
       let rawTitle: string | null = null;
       console.log('path name', pathname);
@@ -420,6 +421,7 @@ export default function App() {
         );
       }
     } catch (err) {
+      console.log('inside catch block', err);
       // Cross-origin iframe navigations are expected and cannot be introspected.
       if (
         err instanceof DOMException &&
