@@ -35,7 +35,9 @@ export class LobbyManager {
   private moveChains: Map<string, MoveChain> = new Map();
   private countdownTokens: Map<string, CountdownToken> = new Map();
 
-  constructor(private readonly persist: LobbyPersistence = noopLobbyPersistence()) {}
+  constructor(
+    private readonly persist: LobbyPersistence = noopLobbyPersistence()
+  ) {}
 
   createLobby(startArticle: string, targetArticle: string): Lobby {
     const lobby: Lobby = {

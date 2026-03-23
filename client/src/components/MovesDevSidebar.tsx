@@ -4,7 +4,7 @@ import type { MoveListNodeSnapshot } from '../types';
 
 type Props = {
   moveChain: MoveListNodeSnapshot | null;
-  /** When false, sidebar is hidden (e.g. production deploy). */
+  /** When false, sidebar is hidden (not on the game screen). */
   visible: boolean;
 };
 

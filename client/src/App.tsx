@@ -11,6 +11,7 @@ import type {
   MoveListNodeSnapshot,
   ServerMessage,
 } from './types';
+import { apiUrl, lobbyWebSocketUrl } from './apiBase';
 
 type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover' | 'results';
 
@@ -49,9 +50,9 @@ export default function App() {
   const [, setMoveCount] = useState(0);
   const [iframeSrc, setIframeSrc] = useState<string | null>(null);
   const [gameSeatOrder, setGameSeatOrder] = useState<(string | null)[]>([]);
-  const [gamePlayers, setGamePlayers] = useState<{ id: string; name: string }[]>(
-    []
-  );
+  const [gamePlayers, setGamePlayers] = useState<
+    { id: string; name: string }[]
+  >([]);
   const [playerMoves, setPlayerMoves] = useState<Map<string, PathMove[]>>(
     () => new Map()
   );
@@ -63,7 +64,9 @@ export default function App() {
   /** Client time when `game_start` arrived — used to space synthetic replay timestamps */
   const [gameStartedAtMs, setGameStartedAtMs] = useState<number | null>(null);
   /** Last finished game lobby (for player names / seats on results) */
-  const [finishedLobby, setFinishedLobby] = useState<LobbySnapshot | null>(null);
+  const [finishedLobby, setFinishedLobby] = useState<LobbySnapshot | null>(
+    null
+  );
 
   const wsRef = useRef<WebSocket | null>(null);
   const wikiRef = useRef<HTMLIFrameElement>(null);
@@ -72,7 +75,7 @@ export default function App() {
 
   const refreshLobbies = useCallback(async () => {
     try {
-      const res = await fetch('/api/lobbies/joinable');
+      const res = await fetch(apiUrl('/api/lobbies/joinable'));
       const data = (await res.json()) as LobbySnapshot[];
       setLobbies(data);
     } catch (e) {
@@ -121,19 +124,21 @@ export default function App() {
         setGameCurrent(start);
         setMoveCount(0);
         setMoveChain(lobby.moveChain ?? null);
-        setIframeSrc('/wiki/' + encodeURIComponent(start));
+        setIframeSrc(apiUrl('/wiki/' + encodeURIComponent(start)));
         setGameSeatOrder(lobby.seats);
         setGamePlayers(lobby.players);
         // Seed every player's path with the start article as step 1
         const seed = new Map<string, PathMove[]>();
         for (const p of lobby.players) {
-          seed.set(p.id, [{
-            article: start,
-            url: `/wiki/${encodeURIComponent(start.replace(/ /g, '_'))}`,
-            step: 1,
-            end: false,
-            timestamp: Date.now(),
-          }]);
+          seed.set(p.id, [
+            {
+              article: start,
+              url: `/wiki/${encodeURIComponent(start.replace(/ /g, '_'))}`,
+              step: 1,
+              end: false,
+              timestamp: Date.now(),
+            },
+          ]);
         }
         setPlayerMoves(seed);
         setScreen('game');
@@ -153,13 +158,16 @@ export default function App() {
           const next = new Map(prev);
           const pid = msg.payload.playerId;
           const existing = next.get(pid) ?? [];
-          next.set(pid, [...existing, {
-            article: msg.payload.article,
-            url: msg.payload.url,
-            step: msg.payload.step,
-            end: msg.payload.end,
-            timestamp: Date.now(),
-          }]);
+          next.set(pid, [
+            ...existing,
+            {
+              article: msg.payload.article,
+              url: msg.payload.url,
+              step: msg.payload.step,
+              end: msg.payload.end,
+              timestamp: Date.now(),
+            },
+          ]);
           return next;
         });
         break;
@@ -195,12 +203,7 @@ export default function App() {
         wsRef.current = null;
       }
 
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const url = `${proto}//${host}/ws?lobbyId=${lobbyId}&playerName=${encodeURIComponent(
-        playerName
-      )}`;
-
+      const url = lobbyWebSocketUrl(lobbyId, playerName);
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
@@ -241,7 +244,7 @@ export default function App() {
   const onCreateLobby = async () => {
     setCreatingLobby(true);
     try {
-      const res = await fetch('/api/lobbies', { method: 'POST' });
+      const res = await fetch(apiUrl('/api/lobbies'), { method: 'POST' });
       if (!res.ok) throw new Error('Failed');
       const lobby = (await res.json()) as LobbySnapshot;
       joinLobby(lobby.id);
@@ -329,12 +332,8 @@ export default function App() {
     );
   }, []);
 
-  /* Vite dev: true. Production build on localhost:3000: false — still show sidebar locally.
-     Hide during the game screen — GameScreen has its own path panel. */
-  const showMoveSidebar =
-    screen !== 'game' &&
-    (import.meta.env.DEV ||
-      ['localhost', '127.0.0.1'].includes(window.location.hostname));
+  /* Path sidebar only while the race is active. */
+  const showMoveSidebar = screen === 'game';
 
   const layoutClass = [
     'app-layout',
@@ -352,11 +351,16 @@ export default function App() {
     <div className={layoutClass}>
       <div className='app-main'>
         {/* ── Cover / alias screen ── */}
-        <div className={`screen screen-alias ${screen === 'alias' ? 'active' : ''}`}>
+        <div
+          className={`screen screen-alias ${
+            screen === 'alias' ? 'active' : ''
+          }`}
+        >
           <div className='card'>
             <h1>wikirace</h1>
             <p className='subtitle'>
-              7,141,000+ articles<br />
+              7,141,000+ articles
+              <br />
               infinite ways to connect them
             </p>
             <form className='alias-form' onSubmit={onAliasSubmit}>
@@ -382,7 +386,12 @@ export default function App() {
         <div className={`screen ${screen === 'lobbies' ? 'active' : ''}`}>
           <div className='topbar'>
             <span className='player-name-display'>{playerName}</span>
-            <button type='button' className='btn-primary' onClick={onCreateLobby} disabled={creatingLobby}>
+            <button
+              type='button'
+              className='btn-primary'
+              onClick={onCreateLobby}
+              disabled={creatingLobby}
+            >
               {creatingLobby ? 'Creating…' : 'Create Lobby'}
             </button>
           </div>
@@ -403,7 +412,11 @@ export default function App() {
                         {lobby.players.length}/{lobby.maxPlayers} players
                       </div>
                     </div>
-                    <button type='button' className='btn-join' onClick={() => joinLobby(lobby.id)}>
+                    <button
+                      type='button'
+                      className='btn-join'
+                      onClick={() => joinLobby(lobby.id)}
+                    >
                       Join
                     </button>
                   </div>
@@ -414,13 +427,21 @@ export default function App() {
         </div>
 
         {/* ── Waiting room screen ── */}
-        <div className={`screen screen-waiting ${screen === 'waiting' ? 'active' : ''}`}>
+        <div
+          className={`screen screen-waiting ${
+            screen === 'waiting' ? 'active' : ''
+          }`}
+        >
           {countdownSeconds !== null && (
             <div className='countdown-overlay' role='status' aria-live='polite'>
               <div className='countdown-overlay-inner'>
                 <p className='countdown-overlay-label'>Starting in</p>
-                <div className='countdown-overlay-number'>{countdownSeconds}</div>
-                <p className='countdown-overlay-sub'>The start article will be revealed next</p>
+                <div className='countdown-overlay-number'>
+                  {countdownSeconds}
+                </div>
+                <p className='countdown-overlay-sub'>
+                  The start article will be revealed next
+                </p>
               </div>
             </div>
           )}
@@ -474,13 +495,28 @@ export default function App() {
         )}
 
         {/* ── Game over screen ── */}
-        <div className={`screen screen-gameover ${screen === 'gameover' ? 'active' : ''}`}>
+        <div
+          className={`screen screen-gameover ${
+            screen === 'gameover' ? 'active' : ''
+          }`}
+        >
           <div className='card'>
             <h2>{gameoverTitle}</h2>
-            <div className='gameover-info' dangerouslySetInnerHTML={{ __html: gameoverHtml }} />
+            <div
+              className='gameover-info'
+              dangerouslySetInnerHTML={{ __html: gameoverHtml }}
+            />
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type='button' onClick={onBackToLobbies}>Back to Lobbies</button>
-              <button type='button' className='btn-primary' onClick={onViewResults}>View Results</button>
+              <button type='button' onClick={onBackToLobbies}>
+                Back to Lobbies
+              </button>
+              <button
+                type='button'
+                className='btn-primary'
+                onClick={onViewResults}
+              >
+                View Results
+              </button>
             </div>
           </div>
         </div>
@@ -493,7 +529,7 @@ export default function App() {
         )}
       </div>
 
-      <MovesDevSidebar moveChain={moveChain} visible={showMoveSidebar} />
+      {/* <MovesDevSidebar moveChain={moveChain} visible={showMoveSidebar} /> */}
     </div>
   );
 }
