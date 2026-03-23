@@ -110,6 +110,16 @@ export default function App() {
       case 'lobby_sync':
         setWaitingLobby(msg.payload);
         setCountdownSeconds(null);
+        if (msg.payload.status === 'waiting') {
+          setIframeSrc(null);
+          setGameSeatOrder([]);
+          setGamePlayers([]);
+          setPlayerMoves(new Map());
+          setMoveChain(msg.payload.moveChain ?? null);
+          setGameStartedAtMs(null);
+          setFinishedLobby(null);
+          setScreen('waiting');
+        }
         break;
       case 'countdown_tick':
         setCountdownSeconds(msg.payload.secondsLeft);
@@ -215,16 +225,6 @@ export default function App() {
     }
   }, []);
 
-  const joinLobby = useCallback(
-    (lobbyId: string) => {
-      console.log('=========');
-      console.log('inside joinLobby');
-      console.log('=========');
-      const prev = wsRef.current;
-      if (prev) {
-        prev.close();
-        wsRef.current = null;
-      }
 
 
   const clearPingTimer = useCallback(() => {
@@ -475,6 +475,21 @@ export default function App() {
     setScreen('results');
   };
 
+  const onBackToLobbyFromResults = () => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      setWaitingInfo('Connection lost. Reconnecting…');
+      return;
+    }
+    setWaitingInfo('Returning to lobby…');
+    ws.send(
+      JSON.stringify({
+        type: 'rematch',
+        payload: {},
+      })
+    );
+  };
+
   const claimSeat = useCallback((seatIndex: number) => {
     console.log('=========');
     console.log('inside claimSeat');
@@ -705,7 +720,10 @@ export default function App() {
         {/* ── Results / replay screen ── */}
         {screen === 'results' && (
           <div className='screen active screen-results'>
-            <ResultsPage paths={[resultsPaths.p1, resultsPaths.p2]} />
+            <ResultsPage
+              paths={[resultsPaths.p1, resultsPaths.p2]}
+              onBackToLobby={onBackToLobbyFromResults}
+            />
           </div>
         )}
       </div>

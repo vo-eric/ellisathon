@@ -55,7 +55,12 @@ export interface Lobby {
 
 // --- WebSocket message protocol ---
 
-export type ClientMessageType = 'move' | 'claim_seat' | 'set_ready' | 'ping';
+export type ClientMessageType =
+  | 'move'
+  | 'claim_seat'
+  | 'set_ready'
+  | 'ping'
+  | 'rematch';
 
 export type ServerMessageType =
   | 'lobby_state'

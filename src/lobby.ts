@@ -199,6 +199,30 @@ export class LobbyManager {
     return true;
   }
 
+  rematch(lobbyId: string, playerId: string): boolean {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return false;
+    if (lobby.status !== 'finished') return false;
+    if (!lobby.players.some((p) => p.id === playerId)) return false;
+
+    this.cancelCountdown(lobbyId);
+
+    lobby.status = 'waiting';
+    lobby.startedAt = null;
+    lobby.finishedAt = null;
+    lobby.winnerId = null;
+    lobby.seatReady = lobby.seatReady.map(() => false);
+
+    const chain = this.getChain(lobbyId);
+    if (chain) {
+      chain.head = null;
+      chain.tail = null;
+    }
+
+    this.broadcastLobbySync(lobby);
+    return true;
+  }
+
   private allSeatedPlayersReady(lobby: Lobby): boolean {
     if (lobby.players.length !== lobby.maxPlayers) return false;
     if (!lobby.seats.every((s) => s !== null)) return false;

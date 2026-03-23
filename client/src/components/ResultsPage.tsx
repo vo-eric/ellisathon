@@ -46,11 +46,12 @@ const SAMPLE_P2: PlayerPath = {
 type Props = {
   /** Live per-player paths from a real game. Falls back to sample data if omitted. */
   paths?: PlayerPath[];
+  onBackToLobby?: () => void;
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function ResultsPage({ paths }: Props) {
+export default function ResultsPage({ paths, onBackToLobby }: Props) {
   const useLive = paths !== undefined;
   const p1 = !useLive
     ? SAMPLE_P1
@@ -156,6 +157,14 @@ export default function ResultsPage({ paths }: Props) {
           replayPlaying={replay.playing}
         />
       </div>
+
+      {onBackToLobby && (
+        <div style={{ marginTop: '20px' }}>
+          <button type='button' className='btn-primary' onClick={onBackToLobby}>
+            Back to Lobby
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -75,6 +75,19 @@ function handleMessage(
       break;
     }
 
+    case 'rematch': {
+      const ok = manager.rematch(lobbyId, player.id);
+      if (!ok) {
+        manager.sendTo(player, {
+          type: 'error',
+          payload: {
+            message: 'Cannot start rematch (game not finished or invalid player)',
+          },
+        });
+      }
+      break;
+    }
+
     case 'set_ready': {
       const ready = msg.payload.ready;
       if (typeof ready !== 'boolean') {
