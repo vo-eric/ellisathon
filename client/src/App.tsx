@@ -276,14 +276,17 @@ export default function App() {
 
   const onWikiFrameLoad = () => {
     const frame = wikiRef.current;
+    console.log('frame', frame);
     if (!frame?.contentWindow) return;
 
     try {
       const loc = frame.contentWindow.location;
+      console.log('location', loc);
       if (loc.origin !== window.location.origin) return;
       if (!loc.pathname.startsWith('/wiki/')) return;
 
       const rawTitle = decodeURIComponent(loc.pathname.replace('/wiki/', ''));
+      console.log('raw title', rawTitle);
       if (!rawTitle) return;
 
       const title = rawTitle.replace(/_/g, ' ');
