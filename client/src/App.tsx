@@ -277,17 +277,28 @@ export default function App() {
   const onWikiFrameLoad = () => {
     const frame = wikiRef.current;
     console.log('frame!', frame);
-    if (!frame?.contentWindow) return;
+    if (!frame) return;
 
     try {
-      const loc = frame.contentWindow.location;
-      console.log('location?!?!', loc.origin);
-      console.log('origin', loc.origin);
-      console.log('pathname', loc.pathname);
-      // if (loc.origin !== window.location.origin) return;
-      if (!loc.pathname.startsWith('/wiki/')) return;
+      const href = frame.contentWindow?.location?.href ?? frame.src;
+      if (!href) return;
+      const url = new URL(href, window.location.href);
+      console.log('location?!?!', url.origin);
+      console.log('origin', url.origin);
+      console.log('pathname', url.pathname);
+      if (url.origin !== window.location.origin) return;
 
-      const rawTitle = decodeURIComponent(loc.pathname.replace('/wiki/', ''));
+      let rawTitle: string | null = null;
+      if (url.pathname.startsWith('/wiki/')) {
+        rawTitle = decodeURIComponent(url.pathname.replace('/wiki/', ''));
+      } else if (url.pathname.startsWith('/api/rest_v1/page/summary/')) {
+        rawTitle = decodeURIComponent(
+          url.pathname.replace('/api/rest_v1/page/summary/', '')
+        );
+      } else {
+        return;
+      }
+
       console.log('raw title', rawTitle);
       if (!rawTitle) return;
 
@@ -295,11 +306,8 @@ export default function App() {
       if (title.toLowerCase() === currentArticleRef.current.toLowerCase())
         return;
 
-      const pageUrl = `${loc.origin}${loc.pathname}${loc.search}${loc.hash}`;
-      const targetPath = `/wiki/${encodeURIComponent(
-        gameTarget.replace(/ /g, '_')
-      )}`;
-      const isTargetUrl = loc.pathname === targetPath;
+      const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
+      const isTargetUrl = title.toLowerCase() === gameTarget.toLowerCase();
 
       currentArticleRef.current = title;
       setGameCurrent(title);
