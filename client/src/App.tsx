@@ -294,6 +294,13 @@ export default function App() {
         );
       }
     } catch (err) {
+      // Cross-origin iframe navigations are expected and cannot be introspected.
+      if (
+        err instanceof DOMException &&
+        (err.name === 'SecurityError' || err.name === 'PermissionDeniedError')
+      ) {
+        return;
+      }
       console.warn('Could not read iframe URL:', err);
     }
   };

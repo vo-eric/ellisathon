@@ -24,11 +24,16 @@ export function createWikiProxy(): Router {
       const html = await wikiRes.text();
 
       const rewritten = html
+        // Keep article navigation same-origin so iframe URL can be read client-side.
         .replace(/href="\/wiki\//g, 'href="/wiki/')
         .replace(
           /href="\/api\/rest_v1\/page\/summary\/([^"]+)"/g,
           'href="/wiki/$1"'
         )
+        .replace(/href="https:\/\/en\.wikipedia\.org\/wiki\//g, 'href="/wiki/')
+        .replace(/href="\/\/en\.wikipedia\.org\/wiki\//g, 'href="/wiki/')
+        .replace(/href="http:\/\/en\.wikipedia\.org\/wiki\//g, 'href="/wiki/')
+        // Non-article assets can remain direct.
         .replace(/href="\/w\//g, `href="${WIKI_BASE}/w/`)
         .replace(/href="\/\/upload/g, `href="https://upload`);
 
