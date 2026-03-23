@@ -7,7 +7,7 @@ import type { ViteDevServer } from 'vite';
 import { createLobbyPersistence } from './lobbyDb';
 import { LobbyManager } from './lobby';
 import { createRouter } from './routes';
-import { createWikiProxy } from './wikiProxy';
+import { createWikiAssetProxy, createWikiProxy } from './wikiProxy';
 import { handleWsConnection } from './wsHandler';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -51,6 +51,7 @@ async function start(): Promise<void> {
   const manager = new LobbyManager(createLobbyPersistence());
   app.use('/api', createRouter(manager));
   app.use('/wiki', createWikiProxy());
+  app.use('/w', createWikiAssetProxy());
 
   const server = http.createServer(app);
 

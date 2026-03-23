@@ -37,3 +37,39 @@ export function createWikiProxy(): Router {
 
   return router;
 }
+
+export function createWikiAssetProxy(): Router {
+  const router = Router();
+
+  router.get('/*path', async (req: Request, res: Response) => {
+    const targetUrl = `${WIKI_BASE}${req.originalUrl}`;
+
+    try {
+      const wikiRes = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'WikiSpeedrun/1.0 (hackathon project)',
+          Accept: '*/*',
+        },
+        redirect: 'follow',
+      });
+
+      res.status(wikiRes.status);
+      const contentType = wikiRes.headers.get('content-type');
+      if (contentType) {
+        res.setHeader('Content-Type', contentType);
+      }
+      const cacheControl = wikiRes.headers.get('cache-control');
+      if (cacheControl) {
+        res.setHeader('Cache-Control', cacheControl);
+      }
+
+      const body = Buffer.from(await wikiRes.arrayBuffer());
+      res.send(body);
+    } catch (err) {
+      console.error('Wiki asset proxy error:', err);
+      res.status(502).send('Failed to load Wikipedia asset.');
+    }
+  });
+
+  return router;
+}
