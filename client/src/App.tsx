@@ -283,16 +283,21 @@ export default function App() {
     try {
       const pathname = frame.contentWindow.location.pathname;
       let rawTitle: string | null = null;
+      console.log('path name', pathname);
       if (pathname.startsWith('/wiki/')) {
         rawTitle = decodeURIComponent(pathname.replace('/wiki/', ''));
+        console.log('in if');
       } else if (pathname.startsWith('/api/rest_v1/page/summary/')) {
+        console.log('in else if');
         // Some Wikipedia skins emit summary endpoint links; treat them as article clicks.
         rawTitle = decodeURIComponent(
           pathname.replace('/api/rest_v1/page/summary/', '')
         );
       } else {
+        console.log('in else');
         return;
       }
+      console.log('raw title', rawTitle);
       if (!rawTitle) return;
       const title = rawTitle.replace(/_/g, ' ');
 
