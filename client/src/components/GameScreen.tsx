@@ -56,6 +56,26 @@ export function GameScreen({
   const timer = useGameTimer(true);
   const myColor = players.find((p) => p.id === myPlayerId)?.color ?? '#111';
 
+  useEffect(() => {
+    console.log('=========');
+    console.log('inside GameScreen useEffect');
+    console.log('=========');
+    const frame = wikiRef.current;
+    if (!frame) return;
+
+    const handleNativeLoad = () => {
+      console.log('=========');
+      console.log('inside handleNativeLoad');
+      console.log('=========');
+      onWikiFrameLoad();
+    };
+    frame.addEventListener('load', handleNativeLoad);
+
+    return () => {
+      frame.removeEventListener('load', handleNativeLoad);
+    };
+  }, [iframeSrc, onWikiFrameLoad, wikiRef]);
+
   // My path to show in the right panel
   const myPlayer = players.find((p) => p.id === myPlayerId);
   const myMoves = myPlayer?.moves ?? [];
@@ -90,6 +110,12 @@ export function GameScreen({
             title='Wikipedia'
             src={iframeSrc}
             onLoad={onWikiFrameLoad}
+            onError={() => {
+              console.log('=========');
+              console.log('inside iframe onError');
+              console.log('=========');
+              console.warn('Wiki iframe failed to load:', iframeSrc);
+            }}
           />
         )}
 

@@ -90,6 +90,9 @@ export default function App() {
   }, [screen, refreshLobbies]);
 
   const handleServerMessage = useCallback((msg: ServerMessage) => {
+    console.log('=========');
+    console.log('inside handleServerMessage');
+    console.log('=========');
     switch (msg.type) {
       case 'lobby_state':
         playerIdRef.current = msg.payload.playerId;
@@ -155,6 +158,9 @@ export default function App() {
           })
         );
         setPlayerMoves((prev) => {
+          console.log('=========');
+          console.log('inside setPlayerMoves updater');
+          console.log('=========');
           const next = new Map(prev);
           const pid = msg.payload.playerId;
           const existing = next.get(pid) ?? [];
@@ -198,6 +204,9 @@ export default function App() {
 
   const joinLobby = useCallback(
     (lobbyId: string) => {
+      console.log('=========');
+      console.log('inside joinLobby');
+      console.log('=========');
       const prev = wsRef.current;
       if (prev) {
         prev.close();
@@ -209,6 +218,9 @@ export default function App() {
       wsRef.current = ws;
 
       ws.addEventListener('open', () => {
+        console.log('=========');
+        console.log('inside ws open listener');
+        console.log('=========');
         setWaitingLobby(null);
         setCountdownSeconds(null);
         setWaitingInfo('Connected. Pick a seat when the lobby loads.');
@@ -216,11 +228,17 @@ export default function App() {
       });
 
       ws.addEventListener('message', (event) => {
+        console.log('=========');
+        console.log('inside ws message listener');
+        console.log('=========');
         const msg = JSON.parse(event.data) as ServerMessage;
         handleServerMessage(msg);
       });
 
       ws.addEventListener('close', (event) => {
+        console.log('=========');
+        console.log('inside ws close listener');
+        console.log('=========');
         if (wsRef.current === ws) {
           wsRef.current = null;
         }
@@ -257,7 +275,9 @@ export default function App() {
   };
 
   const onWikiFrameLoad = () => {
-    console.log('hey?');
+    console.log('=========');
+    console.log('inside onWikiFrameLoad');
+    console.log('=========');
     const frame = wikiRef.current;
     if (!frame?.contentWindow) return;
     try {
@@ -329,6 +349,9 @@ export default function App() {
   };
 
   const claimSeat = useCallback((seatIndex: number) => {
+    console.log('=========');
+    console.log('inside claimSeat');
+    console.log('=========');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(
@@ -340,6 +363,9 @@ export default function App() {
   }, []);
 
   const setReady = useCallback((ready: boolean) => {
+    console.log('=========');
+    console.log('inside setReady');
+    console.log('=========');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(
