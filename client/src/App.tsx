@@ -97,6 +97,9 @@ export default function App() {
   }, [screen, refreshLobbies]);
 
   const handleServerMessage = useCallback((msg: ServerMessage) => {
+    console.log('=========');
+    console.log('inside handleServerMessage');
+    console.log('=========');
     switch (msg.type) {
       case 'lobby_state':
         playerIdRef.current = msg.payload.playerId;
@@ -161,6 +164,9 @@ export default function App() {
           })
         );
         setPlayerMoves((prev) => {
+          console.log('=========');
+          console.log('inside setPlayerMoves updater');
+          console.log('=========');
           const next = new Map(prev);
           const pid = msg.payload.playerId;
           const existing = next.get(pid) ?? [];
@@ -226,6 +232,9 @@ export default function App() {
 
   const connectLobbySocket = useCallback(
     (lobbyId: string) => {
+      console.log('=========');
+      console.log('inside joinLobby');
+      console.log('=========');
       const url = lobbyWebSocketUrl(lobbyId, playerName);
       const ws = new WebSocket(url);
       wsRef.current = ws;
@@ -233,6 +242,9 @@ export default function App() {
       ws.addEventListener('open', () => {
         reconnectAttemptsRef.current = 0;
         clearReconnectTimer();
+        console.log('=========');
+        console.log('inside ws open listener');
+        console.log('=========');
         setWaitingLobby(null);
         setCountdownSeconds(null);
         setWaitingInfo('Connected. Pick a seat when the lobby loads.');
@@ -245,11 +257,17 @@ export default function App() {
       });
 
       ws.addEventListener('message', (event) => {
+        console.log('=========');
+        console.log('inside ws message listener');
+        console.log('=========');
         const msg = JSON.parse(event.data) as ServerMessage;
         handleServerMessage(msg);
       });
 
       ws.addEventListener('close', (event) => {
+        console.log('=========');
+        console.log('inside ws close listener');
+        console.log('=========');
         if (wsRef.current === ws) {
           wsRef.current = null;
         }
@@ -339,22 +357,30 @@ export default function App() {
   };
 
   const onWikiFrameLoad = () => {
-    console.log('hey?');
+    console.log('=========');
+    console.log('inside onWikiFrameLoad');
+    console.log('=========');
     const frame = wikiRef.current;
+    console.log('frame', frame);
     if (!frame?.contentWindow) return;
     try {
       const pathname = frame.contentWindow.location.pathname;
       let rawTitle: string | null = null;
+      console.log('path name', pathname);
       if (pathname.startsWith('/wiki/')) {
         rawTitle = decodeURIComponent(pathname.replace('/wiki/', ''));
+        console.log('in if');
       } else if (pathname.startsWith('/api/rest_v1/page/summary/')) {
+        console.log('in else if');
         // Some Wikipedia skins emit summary endpoint links; treat them as article clicks.
         rawTitle = decodeURIComponent(
           pathname.replace('/api/rest_v1/page/summary/', '')
         );
       } else {
+        console.log('in else');
         return;
       }
+      console.log('raw title', rawTitle);
       if (!rawTitle) return;
       const title = rawTitle.replace(/_/g, ' ');
 
@@ -367,6 +393,9 @@ export default function App() {
       setMoveCount((c) => c + 1);
 
       const ws = wsRef.current;
+      console.log('**************');
+      console.log('websocket status', ws?.readyState);
+      console.log('**************');
       if (ws?.readyState === WebSocket.OPEN) {
         const loc = frame.contentWindow.location;
         const pageUrl = `${loc.origin}${loc.pathname}${loc.search}${loc.hash}`;
@@ -416,6 +445,9 @@ export default function App() {
   };
 
   const claimSeat = useCallback((seatIndex: number) => {
+    console.log('=========');
+    console.log('inside claimSeat');
+    console.log('=========');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(
@@ -427,6 +459,9 @@ export default function App() {
   }, []);
 
   const setReady = useCallback((ready: boolean) => {
+    console.log('=========');
+    console.log('inside setReady');
+    console.log('=========');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(
