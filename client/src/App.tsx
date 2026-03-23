@@ -283,16 +283,23 @@ export default function App() {
     }
 
     try {
-      const href = frame.contentWindow?.location?.href ?? frame.src;
+      let href = frame.src;
+      try {
+        if (frame.contentWindow?.location?.href) {
+          href = frame.contentWindow.location.href;
+        }
+      } catch {
+        console.log('cross-origin iframe; falling back to frame.src');
+      }
       console.log('FIUCK YOU', href);
-      const url = new URL(href, window.location.href);
-      console.log('location?!?!', url);
-      console.log('origin', url.origin);
-      console.log('pathname', url.pathname);
       if (!href) {
         console.log('there is no href');
         return;
       }
+      const url = new URL(href, window.location.href);
+      console.log('location?!?!', url);
+      console.log('origin', url.origin);
+      console.log('pathname', url.pathname);
       if (url.origin !== window.location.origin) {
         console.log('there is no origin');
         return;
