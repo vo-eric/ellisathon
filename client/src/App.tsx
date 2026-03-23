@@ -282,6 +282,7 @@ export default function App() {
     // access to contentWindow.location. Ignore these loads.
     try {
       const frameUrl = new URL(frame.src, window.location.href);
+      console.log('frame url', frameUrl);
       if (frameUrl.origin !== window.location.origin) return;
     } catch {
       return;
@@ -289,6 +290,7 @@ export default function App() {
 
     try {
       const pathname = frame.contentWindow.location.pathname;
+      console.log('path name', pathname);
       let rawTitle: string | null = null;
       if (pathname.startsWith('/wiki/')) {
         rawTitle = decodeURIComponent(pathname.replace('/wiki/', ''));
@@ -300,6 +302,7 @@ export default function App() {
       } else {
         return;
       }
+      console.log('raw title', rawTitle);
       if (!rawTitle) return;
       const title = rawTitle.replace(/_/g, ' ');
 
