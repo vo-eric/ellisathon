@@ -276,75 +276,46 @@ export default function App() {
 
   const onWikiFrameLoad = () => {
     const frame = wikiRef.current;
-    console.log('frame', frame);
     if (!frame?.contentWindow) return;
 
-    // If the iframe has navigated to a different origin, browser security blocks
-    // access to contentWindow.location. Ignore these loads.
     try {
-      const frameUrl = new URL(frame.src, window.location.href);
-      console.log('frame url', frameUrl);
-      if (frameUrl.origin !== window.location.origin) return;
-    } catch {
-      return;
-    }
+      const loc = frame.contentWindow.location;
+      if (loc.origin !== window.location.origin) return;
+      if (!loc.pathname.startsWith('/wiki/')) return;
 
-    try {
-      const pathname = frame.contentWindow.location.pathname;
-      console.log('path name', pathname);
-      let rawTitle: string | null = null;
-      if (pathname.startsWith('/wiki/')) {
-        rawTitle = decodeURIComponent(pathname.replace('/wiki/', ''));
-      } else if (pathname.startsWith('/api/rest_v1/page/summary/')) {
-        // Some Wikipedia skins emit summary endpoint links; treat them as article clicks.
-        rawTitle = decodeURIComponent(
-          pathname.replace('/api/rest_v1/page/summary/', '')
-        );
-      } else {
-        return;
-      }
-      console.log('raw title', rawTitle);
+      const rawTitle = decodeURIComponent(loc.pathname.replace('/wiki/', ''));
       if (!rawTitle) return;
-      const title = rawTitle.replace(/_/g, ' ');
 
-      if (title.toLowerCase() === currentArticleRef.current.toLowerCase()) {
+      const title = rawTitle.replace(/_/g, ' ');
+      if (title.toLowerCase() === currentArticleRef.current.toLowerCase())
         return;
-      }
+
+      const pageUrl = `${loc.origin}${loc.pathname}${loc.search}${loc.hash}`;
+      const targetPath = `/wiki/${encodeURIComponent(
+        gameTarget.replace(/ /g, '_')
+      )}`;
+      const isTargetUrl = loc.pathname === targetPath;
 
       currentArticleRef.current = title;
       setGameCurrent(title);
-      setMoveCount((c) => c + 1);
 
       const ws = wsRef.current;
-      if (ws?.readyState === WebSocket.OPEN) {
-        const loc = frame.contentWindow.location;
-        const pageUrl = `${loc.origin}${loc.pathname}${loc.search}${loc.hash}`;
-        ws.send(
-          JSON.stringify({
-            type: 'move',
-            payload: { article: title, url: pageUrl },
-          })
-        );
-      }
-    } catch (err) {
-      // Cross-origin iframe navigations are expected and cannot be introspected.
-      const name =
-        typeof err === 'object' && err !== null && 'name' in err
-          ? String((err as { name?: unknown }).name)
-          : '';
-      const message =
-        typeof err === 'object' && err !== null && 'message' in err
-          ? String((err as { message?: unknown }).message)
-          : '';
-      const isCrossOriginError =
-        name === 'SecurityError' ||
-        name === 'PermissionDeniedError' ||
-        /cross-origin|permission denied/i.test(message);
+      if (ws?.readyState !== WebSocket.OPEN) return;
+      ws.send(
+        JSON.stringify({
+          type: 'move',
+          payload: { article: title, url: pageUrl },
+        })
+      );
 
-      if (isCrossOriginError) {
+      if (isTargetUrl) {
+        // Server will broadcast `game_over` after recording this winning move.
         return;
       }
-      console.warn('Could not read iframe URL:', err);
+
+      setMoveCount((c) => c + 1);
+    } catch {
+      return;
     }
   };
 
