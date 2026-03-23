@@ -281,7 +281,7 @@ export default function App() {
 
     try {
       const loc = frame.contentWindow.location;
-      console.log('location', loc);
+      console.log('location?!?!', loc.origin);
       console.log('origin', loc.origin);
       console.log('pathname', loc.pathname);
       // if (loc.origin !== window.location.origin) return;
