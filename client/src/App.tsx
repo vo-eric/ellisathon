@@ -335,6 +335,7 @@ export default function App() {
       setGameCurrent(title);
 
       const ws = wsRef.current;
+      console.log('SOCKET TO ME', ws);
       if (ws?.readyState !== WebSocket.OPEN) return;
       ws.send(
         JSON.stringify({
