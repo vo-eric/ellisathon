@@ -144,6 +144,7 @@ export default function App() {
         break;
       }
       case 'move_made':
+        console.log('WE DID A THING');
         setMoveChain((prev) =>
           appendMoveNode(prev, {
             article: msg.payload.article,

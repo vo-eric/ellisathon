@@ -339,6 +339,8 @@ export class LobbyManager {
       createdat: t,
     });
 
+    console.log('RECORDING MOVE');
+
     this.broadcast(lobby, {
       type: 'move_made',
       payload: {
