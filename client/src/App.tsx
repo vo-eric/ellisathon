@@ -305,6 +305,9 @@ export default function App() {
       setMoveCount((c) => c + 1);
 
       const ws = wsRef.current;
+      console.log('**************');
+      console.log('websocket status', ws?.readyState);
+      console.log('**************');
       if (ws?.readyState === WebSocket.OPEN) {
         const loc = frame.contentWindow.location;
         const pageUrl = `${loc.origin}${loc.pathname}${loc.search}${loc.hash}`;
