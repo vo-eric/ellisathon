@@ -215,18 +215,7 @@ export default function App() {
     }
   }, []);
 
-  const joinLobby = useCallback(
-    (lobbyId: string) => {
-      console.log('=========');
-      console.log('inside joinLobby');
-      console.log('=========');
-      const prev = wsRef.current;
-      if (prev) {
-        prev.close();
-        wsRef.current = null;
-      }
-
-
+  
   const clearPingTimer = useCallback(() => {
     if (pingTimerRef.current !== null) {
       window.clearInterval(pingTimerRef.current);
