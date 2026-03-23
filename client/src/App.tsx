@@ -325,6 +325,8 @@ export default function App() {
       }
 
       const title = rawTitle.replace(/_/g, ' ');
+      console.log('title replaced', title);
+      console.log('curren', currentArticleRef.current);
       if (title.toLowerCase() === currentArticleRef.current.toLowerCase())
         return;
 
