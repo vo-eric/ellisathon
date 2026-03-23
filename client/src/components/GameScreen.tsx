@@ -65,7 +65,7 @@ export function GameScreen({
 
     const handleNativeLoad = () => {
       console.log('=========');
-      console.log('inside handleNativeLoad');
+      console.log('inside handleNativeLoad!');
       console.log('=========');
       onWikiFrameLoad();
     };

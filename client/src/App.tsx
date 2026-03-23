@@ -370,66 +370,74 @@ export default function App() {
   };
 
   const onWikiFrameLoad = () => {
-    console.log('=========');
-    console.log('inside onWikiFrameLoad');
-    console.log('=========');
     const frame = wikiRef.current;
-    console.log('frame', frame?.contentWindow);
-    if (!frame?.contentWindow) return;
+    console.log('frame!?', frame);
+    if (!frame) {
+      console.log('there is no frame');
+      return;
+    }
+
     try {
-      console.log('inside try');
-      const pathname = frame.contentWindow.location.pathname;
+      const href = frame.contentWindow?.location?.href ?? frame.src;
+      console.log('FIUCK YOU', href);
+      const url = new URL(href, window.location.href);
+      console.log('location?!?!', url);
+      console.log('origin', url.origin);
+      console.log('pathname', url.pathname);
+      if (!href) {
+        console.log('there is no href');
+        return;
+      }
+      if (url.origin !== window.location.origin) {
+        console.log('there is no origin');
+        return;
+      }
+
       let rawTitle: string | null = null;
-      console.log('path name', pathname);
-      if (pathname.startsWith('/wiki/')) {
-        rawTitle = decodeURIComponent(pathname.replace('/wiki/', ''));
-        console.log('in if');
-      } else if (pathname.startsWith('/api/rest_v1/page/summary/')) {
-        console.log('in else if');
-        // Some Wikipedia skins emit summary endpoint links; treat them as article clicks.
+      if (url.pathname.startsWith('/wiki/')) {
+        rawTitle = decodeURIComponent(url.pathname.replace('/wiki/', ''));
+      } else if (url.pathname.startsWith('/api/rest_v1/page/summary/')) {
         rawTitle = decodeURIComponent(
-          pathname.replace('/api/rest_v1/page/summary/', '')
+          url.pathname.replace('/api/rest_v1/page/summary/', '')
         );
       } else {
-        console.log('in else');
+        console.log('lol else fuck off');
         return;
       }
-      console.log('raw title', rawTitle);
-      if (!rawTitle) return;
-      const title = rawTitle.replace(/_/g, ' ');
 
-      if (title.toLowerCase() === currentArticleRef.current.toLowerCase()) {
+      console.log('raw title', rawTitle);
+      if (!rawTitle) {
+        console.log('no raw title');
         return;
       }
+
+      const title = rawTitle.replace(/_/g, ' ');
+      if (title.toLowerCase() === currentArticleRef.current.toLowerCase())
+        return;
+
+      const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
+      const isTargetUrl = title.toLowerCase() === gameTarget.toLowerCase();
 
       currentArticleRef.current = title;
       setGameCurrent(title);
-      setMoveCount((c) => c + 1);
 
       const ws = wsRef.current;
-      console.log('**************');
-      console.log('websocket status', ws?.readyState);
-      console.log('**************');
-      if (ws?.readyState === WebSocket.OPEN) {
-        const loc = frame.contentWindow.location;
-        const pageUrl = `${loc.origin}${loc.pathname}${loc.search}${loc.hash}`;
-        ws.send(
-          JSON.stringify({
-            type: 'move',
-            payload: { article: title, url: pageUrl },
-          })
-        );
-      }
-    } catch (err) {
-      console.log('inside catch block', err);
-      // Cross-origin iframe navigations are expected and cannot be introspected.
-      if (
-        err instanceof DOMException &&
-        (err.name === 'SecurityError' || err.name === 'PermissionDeniedError')
-      ) {
+      if (ws?.readyState !== WebSocket.OPEN) return;
+      ws.send(
+        JSON.stringify({
+          type: 'move',
+          payload: { article: title, url: pageUrl },
+        })
+      );
+
+      if (isTargetUrl) {
+        // Server will broadcast `game_over` after recording this winning move.
         return;
       }
-      console.warn('Could not read iframe URL:', err);
+
+      setMoveCount((c) => c + 1);
+    } catch {
+      return;
     }
   };
 
