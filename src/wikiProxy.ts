@@ -4,6 +4,7 @@ const WIKI_BASE = 'https://en.wikipedia.org';
 
 export function createWikiProxy(): Router {
   const router = Router();
+  const navBridgeScript = `<script>(function(){var post=function(href){try{window.parent&&window.parent.postMessage({type:'wiki:navigated',href:href},'*');}catch(_){}};var postCurrent=function(){post(window.location.href);};postCurrent();window.addEventListener('pageshow',postCurrent);window.addEventListener('popstate',postCurrent);window.addEventListener('hashchange',postCurrent);document.addEventListener('click',function(ev){var target=ev.target;if(!(target instanceof Element))return;var link=target.closest('a[href]');if(!link)return;var href=link.getAttribute('href');if(!href)return;try{post(new URL(href,window.location.href).href);}catch(_){}} ,true);})();</script>`;
 
   router.get('/*path', async (req: Request, res: Response) => {
     const wikiPath = req.originalUrl.replace(/^\/wiki/, '');
@@ -26,18 +27,32 @@ export function createWikiProxy(): Router {
       const rewritten = html
         // Keep article navigation same-origin so iframe URL can be read client-side.
         .replace(/href="\/wiki\//g, 'href="/wiki/')
+        .replace(/href='\/wiki\//g, "href='/wiki/")
         .replace(
           /href="\/api\/rest_v1\/page\/summary\/([^"]+)"/g,
           'href="/wiki/$1"'
         )
+        .replace(
+          /href='\/api\/rest_v1\/page\/summary\/([^']+)'/g,
+          "href='/wiki/$1'"
+        )
         .replace(/href="https:\/\/en\.wikipedia\.org\/wiki\//g, 'href="/wiki/')
+        .replace(/href='https:\/\/en\.wikipedia\.org\/wiki\//g, "href='/wiki/")
         .replace(/href="\/\/en\.wikipedia\.org\/wiki\//g, 'href="/wiki/')
+        .replace(/href='\/\/en\.wikipedia\.org\/wiki\//g, "href='/wiki/")
         .replace(/href="http:\/\/en\.wikipedia\.org\/wiki\//g, 'href="/wiki/')
+        .replace(/href='http:\/\/en\.wikipedia\.org\/wiki\//g, "href='/wiki/")
         // Non-article assets can remain direct.
         .replace(/href="\/w\//g, `href="${WIKI_BASE}/w/`)
-        .replace(/href="\/\/upload/g, `href="https://upload`);
+        .replace(/href='\/w\//g, `href='${WIKI_BASE}/w/`)
+        .replace(/href="\/\/upload/g, `href="https://upload`)
+        .replace(/href='\/\/upload/g, `href='https://upload`);
 
-      res.send(rewritten);
+      const bridged = rewritten.includes('</body>')
+        ? rewritten.replace('</body>', `${navBridgeScript}</body>`)
+        : `${rewritten}${navBridgeScript}`;
+
+      res.send(bridged);
     } catch (err) {
       console.error('Wiki proxy error:', err);
       res.status(502).send('Failed to load Wikipedia page.');

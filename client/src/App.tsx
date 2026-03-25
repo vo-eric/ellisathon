@@ -279,13 +279,13 @@ export default function App() {
           href = frame.contentWindow.location.href;
         }
       } catch {
-        // Cross-origin iframe location reads can throw; fallback to frame.src.
+        // Cross-origin iframe location reads can throw; fallback to frame.src/message bridge.
         console.log('cross-origin iframe; falling back to frame.src');
       }
       console.log('FIUCK YOU', href);
       if (!href) {
         console.log('there is no href');
-        // return;
+        return;
       }
       const url = new URL(href, window.location.href);
       console.log('location?!?!', url.origin);
@@ -293,7 +293,7 @@ export default function App() {
       console.log('pathname', url.pathname);
       if (url.origin !== window.location.origin) {
         console.log('there is no origin');
-        // return;
+        return;
       }
 
       let rawTitle: string | null = null;
@@ -305,13 +305,13 @@ export default function App() {
         );
       } else {
         console.log('lol else fuck off');
-        // return;
+        return;
       }
 
       console.log('raw title', rawTitle);
       if (!rawTitle) {
         console.log('no raw title');
-        rawTitle = 'https://fuck.you';
+        return;
       }
 
       const title = rawTitle.replace(/_/g, ' ');
@@ -324,12 +324,12 @@ export default function App() {
         title.toLowerCase() === gameStartArticle.toLowerCase()
       ) {
         skippedInitialStartLoadRef.current = true;
-        // return;
+        return;
       }
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
       console.log('page url', pageUrl);
       console.log('last processed', lastProcessedPageUrlRef);
-      // if (pageUrl === lastProcessedPageUrlRef.current) return;
+      if (pageUrl === lastProcessedPageUrlRef.current) return;
       lastProcessedPageUrlRef.current = pageUrl;
 
       const isTargetUrl = title.toLowerCase() === gameTarget.toLowerCase();
@@ -341,9 +341,9 @@ export default function App() {
       console.log('SOCKET TO ME', ws);
       if (ws?.readyState !== WebSocket.OPEN) {
         console.log('lol no socket fuck you');
-        // return;
+        return;
       }
-      ws!.send(
+      ws.send(
         JSON.stringify({
           type: 'move',
           payload: { article: title, url: pageUrl },
@@ -361,6 +361,26 @@ export default function App() {
       return;
     }
   };
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data as { type?: string; href?: string } | null;
+      console.log('data', data);
+      if (!data || data.type !== 'wiki:navigated' || !data.href) return;
+
+      try {
+        const url = new URL(data.href);
+        if (url.pathname.startsWith('/wiki/')) {
+          setIframeSrc(`${url.origin}${url.pathname}${url.search}${url.hash}`);
+        }
+      } catch {
+        // Ignore malformed message payloads.
+      }
+    };
+
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   const onBackToLobbies = () => {
     wsRef.current?.close();
