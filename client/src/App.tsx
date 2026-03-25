@@ -329,7 +329,7 @@ export default function App() {
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
       console.log('page url', pageUrl);
       console.log('last processed', lastProcessedPageUrlRef);
-      if (pageUrl === lastProcessedPageUrlRef.current) return;
+      // if (pageUrl === lastProcessedPageUrlRef.current) return;
       lastProcessedPageUrlRef.current = pageUrl;
 
       const isTargetUrl = title.toLowerCase() === gameTarget.toLowerCase();
