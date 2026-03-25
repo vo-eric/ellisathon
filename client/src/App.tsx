@@ -285,7 +285,7 @@ export default function App() {
       console.log('FIUCK YOU', href);
       if (!href) {
         console.log('there is no href');
-        return;
+        // return;
       }
       const url = new URL(href, window.location.href);
       console.log('location?!?!', url.origin);
@@ -293,7 +293,7 @@ export default function App() {
       console.log('pathname', url.pathname);
       if (url.origin !== window.location.origin) {
         console.log('there is no origin');
-        return;
+        // return;
       }
 
       let rawTitle: string | null = null;
@@ -305,13 +305,14 @@ export default function App() {
         );
       } else {
         console.log('lol else fuck off');
-        return;
+        // return;
       }
 
       console.log('raw title', rawTitle);
       if (!rawTitle) {
         console.log('no raw title');
-        return;
+        rawTitle = 'http://lolfuck.you';
+        // return;
       }
 
       const title = rawTitle.replace(/_/g, ' ');
@@ -323,13 +324,14 @@ export default function App() {
         !skippedInitialStartLoadRef.current &&
         title.toLowerCase() === gameStartArticle.toLowerCase()
       ) {
+        console.log('skipped?');
         skippedInitialStartLoadRef.current = true;
-        return;
+        // return;
       }
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
       console.log('page url', pageUrl);
       console.log('last processed', lastProcessedPageUrlRef);
-      if (pageUrl === lastProcessedPageUrlRef.current) return;
+      // if (pageUrl === lastProcessedPageUrlRef.current) return;
       lastProcessedPageUrlRef.current = pageUrl;
 
       const isTargetUrl = title.toLowerCase() === gameTarget.toLowerCase();
