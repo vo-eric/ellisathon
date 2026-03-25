@@ -328,6 +328,8 @@ export default function App() {
       const isStartingUrl =
         title.toLowerCase() === gameStartArticle.toLowerCase();
 
+      console.log('at start?', isStartingUrl);
+
       currentArticleRef.current = title;
       setGameCurrent(title);
 
