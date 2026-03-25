@@ -324,7 +324,7 @@ export default function App() {
         title.toLowerCase() === gameStartArticle.toLowerCase()
       ) {
         skippedInitialStartLoadRef.current = true;
-        return;
+        // return;
       }
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
       console.log('page url', pageUrl);
