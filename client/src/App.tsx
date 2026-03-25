@@ -70,7 +70,8 @@ export default function App() {
   const wikiRef = useRef<HTMLIFrameElement>(null);
   const currentArticleRef = useRef('');
   const lastProcessedPageUrlRef = useRef('');
-  const skippedInitialStartLoadRef = useRef(false);
+  /** True after the player has navigated to any article other than the start (allows A→B→A to count A again). */
+  const hasLeftStartArticleRef = useRef(false);
   const playerIdRef = useRef<string | null>(null);
 
   const refreshLobbies = useCallback(async () => {
@@ -119,7 +120,8 @@ export default function App() {
         setFinishedLobby(null);
         setGameStartedAtMs(Date.now());
         currentArticleRef.current = start;
-        skippedInitialStartLoadRef.current = false;
+        lastProcessedPageUrlRef.current = '';
+        hasLeftStartArticleRef.current = false;
         setGameTarget(lobby.targetArticle);
         setGameStartArticle(start);
         setGameCurrent(start);
@@ -309,26 +311,23 @@ export default function App() {
       console.log('title replaced', title);
       console.log('curren', currentArticleRef.current);
       console.log('game start article', gameStartArticle);
-      // Ignore only the very first seeded start-page iframe load.
-      if (
-        !skippedInitialStartLoadRef.current &&
-        title.toLowerCase() === gameStartArticle.toLowerCase()
-      ) {
-        console.log('skipped?');
-        skippedInitialStartLoadRef.current = true;
-        return;
-      }
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
       console.log('page url', pageUrl);
       console.log('last processed', lastProcessedPageUrlRef);
       if (pageUrl === lastProcessedPageUrlRef.current) return;
+
+      const isStartArticle =
+        title.toLowerCase() === gameStartArticle.toLowerCase();
+      // Do not record a move for the opening article (already step 1 in the seed).
+      // After leaving start, returning to start (e.g. A→B→A) should record normally.
+      if (isStartArticle && !hasLeftStartArticleRef.current) {
+        lastProcessedPageUrlRef.current = pageUrl;
+        return;
+      }
+
       lastProcessedPageUrlRef.current = pageUrl;
 
       const isTargetUrl = title.toLowerCase() === gameTarget.toLowerCase();
-      const isStartingUrl =
-        title.toLowerCase() === gameStartArticle.toLowerCase();
-
-      console.log('at start?', isStartingUrl);
 
       currentArticleRef.current = title;
       setGameCurrent(title);
@@ -346,7 +345,11 @@ export default function App() {
         })
       );
 
-      if (isTargetUrl || isStartingUrl) {
+      if (!isStartArticle) {
+        hasLeftStartArticleRef.current = true;
+      }
+
+      if (isTargetUrl) {
         // Server will broadcast `game_over` after recording this winning move.
         return;
       }
@@ -391,7 +394,8 @@ export default function App() {
     setWaitingLobby(null);
     setMyPlayerId(null);
     setCountdownSeconds(null);
-    skippedInitialStartLoadRef.current = false;
+    hasLeftStartArticleRef.current = false;
+    lastProcessedPageUrlRef.current = '';
     setScreen('lobbies');
     refreshLobbies();
   };
