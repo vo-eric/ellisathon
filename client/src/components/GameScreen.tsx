@@ -57,16 +57,10 @@ export function GameScreen({
   const myColor = players.find((p) => p.id === myPlayerId)?.color ?? '#111';
 
   useEffect(() => {
-    console.log('=========');
-    console.log('inside GameScreen useEffect');
-    console.log('=========');
     const frame = wikiRef.current;
     if (!frame) return;
 
     const handleNativeLoad = () => {
-      console.log('=========');
-      console.log('inside handleNativeLoad!');
-      console.log('=========');
       onWikiFrameLoad();
     };
     frame.addEventListener('load', handleNativeLoad);

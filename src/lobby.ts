@@ -408,9 +408,6 @@ export class LobbyManager {
 
   broadcast(lobby: Lobby, message: ServerMessage): void {
     const data = JSON.stringify(message);
-    console.log('==================');
-    console.log(data);
-    console.log('==================');
     for (const player of lobby.players) {
       if (player.ws.readyState === WebSocket.OPEN) {
         player.ws.send(data);

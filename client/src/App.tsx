@@ -91,9 +91,6 @@ export default function App() {
   }, [screen, refreshLobbies]);
 
   const handleServerMessage = useCallback((msg: ServerMessage) => {
-    console.log('=========');
-    console.log('inside handleServerMessage', msg.type);
-    console.log('=========');
     switch (msg.type) {
       case 'lobby_state':
         playerIdRef.current = msg.payload.playerId;
@@ -151,9 +148,6 @@ export default function App() {
       case 'move_made':
         console.log('move has been made');
         setPlayerMoves((prev) => {
-          console.log('=========');
-          console.log('inside setPlayerMoves updater');
-          console.log('=========');
           const next = new Map(prev);
           const pid = msg.payload.playerId;
           if (!pid) return next;
@@ -221,9 +215,6 @@ export default function App() {
 
       ws.addEventListener('message', (event) => {
         const msg = JSON.parse(event.data) as ServerMessage;
-        console.log('=========');
-        console.log('inside ws message listener', msg);
-        console.log('=========');
         handleServerMessage(msg);
       });
 
@@ -288,7 +279,6 @@ export default function App() {
         // return;
       }
       const url = new URL(href, window.location.href);
-      console.log('location?!?!', url.origin);
       console.log('origin', url.origin);
       console.log('pathname', url.pathname);
       if (url.origin !== window.location.origin) {
@@ -335,6 +325,8 @@ export default function App() {
       lastProcessedPageUrlRef.current = pageUrl;
 
       const isTargetUrl = title.toLowerCase() === gameTarget.toLowerCase();
+      const isStartingUrl =
+        title.toLowerCase() === gameStartArticle.toLowerCase();
 
       currentArticleRef.current = title;
       setGameCurrent(title);
@@ -352,7 +344,7 @@ export default function App() {
         })
       );
 
-      if (isTargetUrl) {
+      if (isTargetUrl || isStartingUrl) {
         // Server will broadcast `game_over` after recording this winning move.
         return;
       }
