@@ -10,8 +10,10 @@ import type {
   ServerMessage,
 } from './types';
 import { apiUrl, lobbyWebSocketUrl } from './apiBase';
+import { UUID } from 'node:crypto';
 
 type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover' | 'results';
+type GameState = 'pending' | 'started' | 'ended';
 
 function escapeHtml(str: string): string {
   const div = document.createElement('div');
@@ -29,7 +31,34 @@ function transitionCountFromChain(chain: MoveListNodeSnapshot | null): number {
   return n;
 }
 
+interface Article {
+  url: string;
+  title: string;
+}
+
+export interface Player {
+  id: UUID;
+  name: string;
+  winner: boolean;
+  moves: PathMove[];
+}
+
+export interface Game {
+  gameState: GameState;
+  startArticle: Article | null;
+  targetArticle: Article | null;
+  players: Player[];
+}
+
+const initialGameState: Game = {
+  gameState: 'pending',
+  startArticle: null,
+  targetArticle: null,
+  players: [],
+};
+
 export default function App() {
+  const gameState = useState<Game>(initialGameState);
   const [screen, setScreen] = useState<Screen>('alias');
   const [aliasInput, setAliasInput] = useState('');
   const [playerName, setPlayerName] = useState('');
@@ -37,7 +66,7 @@ export default function App() {
   const [waitingInfo, setWaitingInfo] = useState('');
   /** Full lobby while on waiting screen (players, seats, route). */
   const [waitingLobby, setWaitingLobby] = useState<LobbySnapshot | null>(null);
-  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+  const [myPlayerId, setMyPlayerId] = useState<string>('');
   /** Server-driven pre-game countdown (5 → 1), then game_start. */
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [creatingLobby, setCreatingLobby] = useState(false);
@@ -72,7 +101,6 @@ export default function App() {
   const lastProcessedPageUrlRef = useRef('');
   /** True after the player has navigated to any article other than the start (allows A→B→A to count A again). */
   const hasLeftStartArticleRef = useRef(false);
-  const playerIdRef = useRef<string | null>(null);
 
   const refreshLobbies = useCallback(async () => {
     try {
@@ -91,11 +119,9 @@ export default function App() {
     return () => clearInterval(id);
   }, [screen, refreshLobbies]);
 
-  const handleServerMessage = useCallback((msg: ServerMessage) => {
+  const handleServerMessage = (msg: ServerMessage) => {
     switch (msg.type) {
       case 'lobby_state':
-        playerIdRef.current = msg.payload.playerId;
-        setMyPlayerId(msg.payload.playerId);
         setWaitingLobby(msg.payload.lobby);
         setMoveChain(msg.payload.lobby.moveChain ?? null);
         break;
@@ -149,6 +175,7 @@ export default function App() {
       }
       case 'move_made':
         console.log('move has been made');
+        console.log('message', msg);
         setPlayerMoves((prev) => {
           const next = new Map(prev);
           const pid = msg.payload.playerId;
@@ -173,9 +200,14 @@ export default function App() {
         });
         break;
       case 'game_over': {
+        // NOTE: FIGURE OUT HOW THE IDs GET MISMATCHED AT THE END
+        console.log('payload', msg.payload);
         const { winnerId, lobby } = msg.payload;
         const winner = lobby.players.find((p) => p.id === winnerId);
-        const isMe = winnerId === playerIdRef.current;
+        const isMe = winnerId === myPlayerId;
+        console.log('winner winner chicken dinner');
+        console.log('winner', winner);
+        console.log('me', myPlayerId);
         setGameoverTitle(isMe ? 'You Win!' : 'Game Over');
         const tc = transitionCountFromChain(lobby.moveChain);
         setGameoverHtml(
@@ -194,7 +226,7 @@ export default function App() {
         console.error('Server error:', msg.payload.message);
         break;
     }
-  }, []);
+  };
 
   const joinLobby = useCallback(
     (lobbyId: string) => {
@@ -203,8 +235,7 @@ export default function App() {
         prev.close();
         wsRef.current = null;
       }
-
-      const url = lobbyWebSocketUrl(lobbyId, playerName);
+      const url = lobbyWebSocketUrl(lobbyId, playerName, myPlayerId);
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
@@ -240,6 +271,7 @@ export default function App() {
     if (!name) return;
     setPlayerName(name);
     setScreen('lobbies');
+    setMyPlayerId(crypto.randomUUID());
   };
 
   const onCreateLobby = async () => {
@@ -392,7 +424,6 @@ export default function App() {
     setGameStartedAtMs(null);
     setFinishedLobby(null);
     setWaitingLobby(null);
-    setMyPlayerId(null);
     setCountdownSeconds(null);
     hasLeftStartArticleRef.current = false;
     lastProcessedPageUrlRef.current = '';
@@ -440,8 +471,6 @@ export default function App() {
     () => moveChainToResultsPaths(moveChain, finishedLobby, gameStartedAtMs),
     [moveChain, finishedLobby, gameStartedAtMs]
   );
-
-  console.log('results path', resultsPaths);
 
   return (
     <div className={layoutClass}>

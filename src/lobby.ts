@@ -104,14 +104,19 @@ export class LobbyManager {
       .map((l) => this.snapshot(l));
   }
 
-  addPlayer(lobbyId: string, playerName: string, ws: WebSocket): Player | null {
+  addPlayer(
+    lobbyId: string,
+    playerName: string,
+    playerId: string,
+    ws: WebSocket
+  ): Player | null {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return null;
     if (lobby.status !== 'waiting') return null;
     if (lobby.players.length >= lobby.maxPlayers) return null;
 
     const player: Player = {
-      id: randomUUID(),
+      id: playerId,
       name: playerName,
       ws,
       joinedAt: Date.now(),

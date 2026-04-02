@@ -15,9 +15,15 @@ export function apiUrl(path: string): string {
   return base ? `${base}${p}` : p;
 }
 
-export function lobbyWebSocketUrl(lobbyId: string, playerName: string): string {
+export function lobbyWebSocketUrl(
+  lobbyId: string,
+  playerName: string,
+  playerId: string
+): string {
   const base = backendOrigin();
-  const q = `lobbyId=${lobbyId}&playerName=${encodeURIComponent(playerName)}`;
+  const q = `lobbyId=${lobbyId}&playerName=${encodeURIComponent(
+    playerName
+  )}&playerId=${encodeURIComponent(playerId)}`;
   if (!base) {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${window.location.host}/ws?${q}`;
