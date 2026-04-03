@@ -2,10 +2,14 @@
   "name": "wikirun",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "client"
+  ],
   "scripts": {
     "dev": "concurrently -n worker,client -c blue,magenta \"wrangler dev\" \"npm run dev --prefix client\"",
     "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy",
+    "build": "npm run build --prefix client",
     "dev:client": "npm run dev --prefix client",
     "build:client": "npm run build --prefix client"
   },
