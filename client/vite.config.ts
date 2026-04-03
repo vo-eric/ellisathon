@@ -14,10 +14,10 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       proxy: {
-        '/api': { target: 'http://localhost:3000', changeOrigin: true },
-        '/wiki': { target: 'http://localhost:3000', changeOrigin: true },
+        '/api': { target: 'http://localhost:8787', changeOrigin: true },
+        '/wiki': { target: 'http://localhost:8787', changeOrigin: true },
         '/ws': {
-          target: 'ws://localhost:3000',
+          target: 'ws://localhost:8787',
           ws: true,
         },
       },

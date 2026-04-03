@@ -1,37 +1,21 @@
 {
-  "name": "hackathon",
+  "name": "wikirun",
   "version": "1.0.0",
-  "main": "dist/index.js",
+  "private": true,
   "scripts": {
-    "build": "tsc",
-    "start": "NODE_ENV=production node dist/index.js",
-    "dev": "npm run dev:server",
-    "dev:server": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
+    "dev": "concurrently -n worker,client -c blue,magenta \"wrangler dev\" \"npm run dev --prefix client\"",
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy",
     "dev:client": "npm run dev --prefix client",
-    "build:client": "npm run build --prefix client",
-    "build:all": "npm run build && npm run build:client"
+    "build:client": "npm run build --prefix client"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
-    "express": "^5.2.1",
-    "uuid": "^13.0.0",
-    "ws": "^8.20.0"
+    "hono": "^4"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/express": "^5.0.6",
-    "@types/node": "^25.5.0",
-    "@types/uuid": "^10.0.0",
-    "@types/ws": "^8.18.1",
+    "@cloudflare/workers-types": "^4",
     "concurrently": "^9.1.2",
-    "nodemon": "^3.1.14",
-    "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "vite": "^6.0.3"
+    "wrangler": "^4"
   }
 }
