@@ -1,0 +1,12 @@
+name = "ellisathon"
+main = "src/index.ts"
+compatibility_date = "2024-12-30"
+
+[durable_objects]
+bindings = [
+  { name = "LOBBY_MANAGER", class_name = "LobbyManagerDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LobbyManagerDO"]

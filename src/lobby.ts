@@ -1,6 +1,3 @@
-import { randomUUID } from 'crypto';
-import WebSocket from 'ws';
-import { noopLobbyPersistence, type LobbyPersistence } from './lobbyDb';
 import {
   Article,
   Lobby,
@@ -11,8 +8,8 @@ import {
   ServerMessage,
 } from './types';
 
-const MAX_PLAYERS = 2;
-const COUNTDOWN_SECONDS = 5;
+const MAX_PLAYERS = 1;
+const COUNTDOWN_SECONDS = 1;
 
 function articlesMatch(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase();
@@ -36,13 +33,9 @@ export class LobbyManager {
   private moveChains: Map<string, MoveChain> = new Map();
   private countdownTokens: Map<string, CountdownToken> = new Map();
 
-  constructor(
-    private readonly persist: LobbyPersistence = noopLobbyPersistence()
-  ) {}
-
   createLobby(startArticle: Article, targetArticle: Article): Lobby {
     const lobby: Lobby = {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       status: 'waiting',
       players: [],
       seats: Array.from({ length: MAX_PLAYERS }, () => null),
@@ -57,13 +50,6 @@ export class LobbyManager {
     };
     this.lobbies.set(lobby.id, lobby);
     this.moveChains.set(lobby.id, { head: null, tail: null });
-    // this.persist.insertLobbyRow({
-    //   id: lobby.id,
-    //   startarticle: lobby.startArticle,
-    //   targetarticle: lobby.targetArticle,
-    //   playercount: lobby.maxPlayers,
-    //   createdat: lobby.createdAt,
-    // });
     return lobby;
   }
 
@@ -283,17 +269,6 @@ export class LobbyManager {
     chain.head = first;
     chain.tail = first;
 
-    // const t0 = Date.now();
-    // this.persist.insertMoveRow({
-    //   lobbyid: lobbyId,
-    //   step: 1,
-    //   article: lobby.startArticle.title,
-    //   url,
-    //   end,
-    //   playerid: null,
-    //   createdat: t0,
-    // });
-
     this.broadcast(lobby, {
       type: 'game_start',
       payload: this.snapshot(lobby),
@@ -312,7 +287,6 @@ export class LobbyManager {
     article: string,
     url?: string
   ): MoveListNode | null {
-    console.log('inside record move');
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby || lobby.status !== 'in_progress') return null;
 
@@ -337,17 +311,6 @@ export class LobbyManager {
 
     chain.tail.next = node;
     chain.tail = node;
-
-    // const t = Date.now();
-    // this.persist.insertMoveRow({
-    //   lobbyid: lobbyId,
-    //   step,
-    //   article,
-    //   url: resolvedUrl,
-    //   end,
-    //   playerid: playerId,
-    //   createdat: t,
-    // });
 
     this.broadcast(lobby, {
       type: 'move_made',
@@ -374,14 +337,6 @@ export class LobbyManager {
     lobby.status = 'finished';
     lobby.finishedAt = Date.now();
     lobby.winnerId = winnerId;
-
-    const snap = this.snapshot(lobby);
-    // this.persist.finalizeLobbyRow({
-    //   id: lobby.id,
-    //   finishedat: lobby.finishedAt,
-    //   winningplayer: winnerId,
-    //   playersJson: JSON.stringify(snap.players),
-    // });
 
     this.broadcast(lobby, {
       type: 'game_over',
@@ -416,14 +371,14 @@ export class LobbyManager {
   broadcast(lobby: Lobby, message: ServerMessage): void {
     const data = JSON.stringify(message);
     for (const player of lobby.players) {
-      if (player.ws.readyState === WebSocket.OPEN) {
+      if (player.ws.readyState === 1) {
         player.ws.send(data);
       }
     }
   }
 
   sendTo(player: Player, message: ServerMessage): void {
-    if (player.ws.readyState === WebSocket.OPEN) {
+    if (player.ws.readyState === 1) {
       player.ws.send(JSON.stringify(message));
     }
   }
