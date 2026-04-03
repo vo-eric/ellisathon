@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 interface WikiNavigationOptions {
   /** Current match status — only processes navigation when 'playing'. */
@@ -9,6 +9,21 @@ interface WikiNavigationOptions {
   sendMove: (article: string, url: string) => void;
   /** Called when the iframe navigates to a new wiki page (updates iframeSrc). */
   onIframeSrcChange: (href: string) => void;
+}
+
+function extractTitleFromPathname(pathname: string): string | null {
+  if (pathname.startsWith('/wiki/')) {
+    return decodeURIComponent(pathname.replace('/wiki/', '')).replace(
+      /_/g,
+      ' '
+    );
+  }
+  if (pathname.startsWith('/api/rest_v1/page/summary/')) {
+    return decodeURIComponent(
+      pathname.replace('/api/rest_v1/page/summary/', '')
+    ).replace(/_/g, ' ');
+  }
+  return null;
 }
 
 export function useWikiNavigation({
@@ -22,49 +37,33 @@ export function useWikiNavigation({
   const lastProcessedPageUrlRef = useRef('');
   const hasLeftStartArticleRef = useRef(false);
 
+  const isPlayingRef = useRef(isPlaying);
+  const startTitleRef = useRef(startTitle);
+  const targetTitleRef = useRef(targetTitle);
+  const sendMoveRef = useRef(sendMove);
+  isPlayingRef.current = isPlaying;
+  startTitleRef.current = startTitle;
+  targetTitleRef.current = targetTitle;
+  sendMoveRef.current = sendMove;
+
   const resetRefs = () => {
     lastProcessedPageUrlRef.current = '';
     hasLeftStartArticleRef.current = false;
   };
 
-  const onWikiFrameLoad = () => {
-    if (!isPlaying) return;
-
-    const frame = wikiRef.current;
-    if (!frame) return;
+  const processNavigation = useCallback((href: string) => {
+    if (!isPlayingRef.current) return;
 
     try {
-      let href = frame.src;
-      try {
-        if (frame.contentWindow?.location?.href) {
-          href = frame.contentWindow.location.href;
-        }
-      } catch {
-        console.log('cross-origin iframe; falling back to frame.src');
-      }
-      if (!href) return;
+      const url = new URL(href);
+      const title = extractTitleFromPathname(url.pathname);
+      if (!title) return;
 
-      const url = new URL(href, window.location.href);
-      if (url.origin !== window.location.origin) return;
-
-      let rawTitle: string | null = null;
-      if (url.pathname.startsWith('/wiki/')) {
-        rawTitle = decodeURIComponent(url.pathname.replace('/wiki/', ''));
-      } else if (url.pathname.startsWith('/api/rest_v1/page/summary/')) {
-        rawTitle = decodeURIComponent(
-          url.pathname.replace('/api/rest_v1/page/summary/', '')
-        );
-      } else {
-        return;
-      }
-
-      if (!rawTitle) return;
-
-      const title = rawTitle.replace(/_/g, ' ');
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
       if (pageUrl === lastProcessedPageUrlRef.current) return;
 
-      const isStartArticle = title.toLowerCase() === startTitle.toLowerCase();
+      const isStartArticle =
+        title.toLowerCase() === startTitleRef.current.toLowerCase();
       if (isStartArticle && !hasLeftStartArticleRef.current) {
         lastProcessedPageUrlRef.current = pageUrl;
         return;
@@ -72,17 +71,26 @@ export function useWikiNavigation({
 
       lastProcessedPageUrlRef.current = pageUrl;
 
-      const isTargetUrl = title.toLowerCase() === targetTitle.toLowerCase();
-
-      sendMove(title, pageUrl);
-
       if (!isStartArticle) {
         hasLeftStartArticleRef.current = true;
       }
 
-      if (isTargetUrl) return;
+      sendMoveRef.current(title, pageUrl);
     } catch (e) {
       console.log(e);
+    }
+  }, []);
+
+  const onWikiFrameLoad = () => {
+    if (!isPlaying) return;
+    const frame = wikiRef.current;
+    if (!frame) return;
+
+    try {
+      const href = frame.contentWindow?.location?.href;
+      if (href) processNavigation(href);
+    } catch {
+      // Cross-origin — handled by postMessage bridge instead.
     }
   };
 
@@ -96,6 +104,7 @@ export function useWikiNavigation({
         if (url.pathname.startsWith('/wiki/')) {
           const href = `${url.origin}${url.pathname}${url.search}${url.hash}`;
           onIframeSrcChange(href);
+          processNavigation(href);
         }
       } catch {
         // Ignore malformed message payloads.
@@ -104,7 +113,7 @@ export function useWikiNavigation({
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [onIframeSrcChange]);
+  }, [onIframeSrcChange, processNavigation]);
 
   return { wikiRef, onWikiFrameLoad, resetRefs };
 }
