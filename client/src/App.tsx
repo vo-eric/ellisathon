@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { WaitingRoom } from './components/WaitingRoom';
 import ResultsPage, { SEAT_COLORS } from './components/ResultsPage';
 import { GameScreen } from './components/GameScreen';
+import EndScreen from './components/EndScreen';
 import { moveChainToResultsPaths } from './utils/resultsPaths';
 import type { PathMove } from './hooks/useReplay';
 import type {
@@ -12,22 +13,6 @@ import type {
 import { apiUrl, lobbyWebSocketUrl } from './apiBase';
 
 type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover' | 'results';
-
-function escapeHtml(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-function transitionCountFromChain(chain: MoveListNodeSnapshot | null): number {
-  let n = 0;
-  let cur = chain;
-  while (cur?.next) {
-    n++;
-    cur = cur.next;
-  }
-  return n;
-}
 
 // const initialGameState: Game = {
 //   gameState: 'pending',
@@ -62,9 +47,6 @@ export default function App() {
   const [playerMoves, setPlayerMoves] = useState<Map<string, PathMove[]>>(
     () => new Map()
   );
-
-  const [gameoverTitle, setGameoverTitle] = useState('');
-  const [gameoverHtml, setGameoverHtml] = useState('');
 
   const [moveChain, setMoveChain] = useState<MoveListNodeSnapshot | null>(null);
   /** Client time when `game_start` arrived — used to space synthetic replay timestamps */
@@ -179,21 +161,7 @@ export default function App() {
         });
         break;
       case 'game_over': {
-        // NOTE: FIGURE OUT HOW THE IDs GET MISMATCHED AT THE END
-        console.log('payload', msg.payload);
-        const { winnerId, lobby } = msg.payload;
-        const winner = lobby.players.find((p) => p.id === winnerId);
-        const isMe = winnerId === myPlayerId;
-        // <EndScreen />;
-        setGameoverTitle(isMe ? 'You Win!' : 'Game Over');
-        const tc = transitionCountFromChain(lobby.moveChain);
-        setGameoverHtml(
-          `<strong>${escapeHtml(
-            winner?.name ?? 'Unknown'
-          )}</strong> reached <strong>${escapeHtml(
-            lobby.targetArticle.title
-          )}</strong> in <strong>${tc}</strong> moves.`
-        );
+        const { lobby } = msg.payload;
         setMoveChain(lobby.moveChain ?? null);
         setFinishedLobby(lobby);
         setScreen('gameover');
@@ -588,23 +556,14 @@ export default function App() {
           }`}
         >
           <div className='card'>
-            <h2>{gameoverTitle}</h2>
-            <div
-              className='gameover-info'
-              dangerouslySetInnerHTML={{ __html: gameoverHtml }}
-            />
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button type='button' onClick={onBackToLobbies}>
-                Back to Lobbies
-              </button>
-              <button
-                type='button'
-                className='btn-primary'
-                onClick={onViewResults}
-              >
-                View Results
-              </button>
-            </div>
+            {finishedLobby && (
+              <EndScreen
+                lobby={finishedLobby}
+                currentPlayerId={myPlayerId}
+                onBackToLobbies={onBackToLobbies}
+                onViewResults={onViewResults}
+              />
+            )}
           </div>
         </div>
 
