@@ -9,42 +9,52 @@ import type {
   LobbySnapshot,
   MoveListNodeSnapshot,
   ServerMessage,
-  ActiveGame,
 } from './types';
 import { apiUrl, lobbyWebSocketUrl } from './apiBase';
 
 type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover' | 'results';
+
+interface WaitingState {
+  lobby: LobbySnapshot | null;
+  info: string;
+  countdownSeconds: number | null;
+}
+
+type Match =
+  | { status: 'idle' }
+  | {
+      status: 'playing';
+      startTitle: string;
+      targetTitle: string;
+      iframeSrc: string;
+      seats: (string | null)[];
+      players: { id: string; name: string }[];
+      playerMoves: Map<string, PathMove[]>;
+      moveChain: MoveListNodeSnapshot | null;
+      startedAtMs: number;
+    }
+  | {
+      status: 'finished';
+      lobby: LobbySnapshot;
+      moveChain: MoveListNodeSnapshot | null;
+      startedAtMs: number;
+    };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('alias');
   const [aliasInput, setAliasInput] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [lobbies, setLobbies] = useState<LobbySnapshot[]>([]);
-  const [waitingInfo, setWaitingInfo] = useState('');
-  /** Full lobby while on waiting screen (players, seats, route). */
-  const [waitingLobby, setWaitingLobby] = useState<LobbySnapshot | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string>('');
-  /** Server-driven pre-game countdown (5 → 1), then game_start. */
-  const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [creatingLobby, setCreatingLobby] = useState(false);
 
-  const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
-  const [playerMoves, setPlayerMoves] = useState<Map<string, PathMove[]>>(
-    () => new Map()
-  );
-
-  const [moveChain, setMoveChain] = useState<MoveListNodeSnapshot | null>(null);
-  /** Client time when `game_start` arrived — used to space synthetic replay timestamps */
-  const [gameStartedAtMs, setGameStartedAtMs] = useState<number | null>(null);
-  /** Last finished game lobby (for player names / seats on results) */
-  const [finishedLobby, setFinishedLobby] = useState<LobbySnapshot | null>(
-    null
-  );
+  const [waiting, setWaiting] = useState<WaitingState | null>(null);
+  const [match, setMatch] = useState<Match>({ status: 'idle' });
 
   const wsRef = useRef<WebSocket | null>(null);
   const wikiRef = useRef<HTMLIFrameElement>(null);
   const lastProcessedPageUrlRef = useRef('');
-  /** True after the player has navigated to any article other than the start (allows A→B→A to count A again). */
+  /** Allows A→B→A to count the start article again after leaving it once. */
   const hasLeftStartArticleRef = useRef(false);
 
   const refreshLobbies = useCallback(async () => {
@@ -67,40 +77,42 @@ export default function App() {
   const handleServerMessage = (msg: ServerMessage) => {
     switch (msg.type) {
       case 'lobby_state':
-        setWaitingLobby(msg.payload.lobby);
-        setMoveChain(msg.payload.lobby.moveChain ?? null);
+        setWaiting((prev) =>
+          prev
+            ? { ...prev, lobby: msg.payload.lobby }
+            : { lobby: msg.payload.lobby, info: '', countdownSeconds: null }
+        );
         break;
       case 'lobby_sync':
-        setWaitingLobby(msg.payload);
-        setCountdownSeconds(null);
+        setWaiting((prev) =>
+          prev
+            ? { ...prev, lobby: msg.payload, countdownSeconds: null }
+            : { lobby: msg.payload, info: '', countdownSeconds: null }
+        );
         break;
       case 'countdown_tick':
-        setCountdownSeconds(msg.payload.secondsLeft);
+        setWaiting((prev) =>
+          prev ? { ...prev, countdownSeconds: msg.payload.secondsLeft } : prev
+        );
         break;
       case 'player_joined':
-        setWaitingInfo(`${msg.payload.name} joined the lobby.`);
+        setWaiting((prev) =>
+          prev
+            ? { ...prev, info: `${msg.payload.name} joined the lobby.` }
+            : prev
+        );
         break;
       case 'player_left':
-        setWaitingInfo('Opponent disconnected.');
+        setWaiting((prev) =>
+          prev ? { ...prev, info: 'Opponent disconnected.' } : prev
+        );
         break;
       case 'game_start': {
         const lobby = msg.payload;
         const { title: startTitle } = lobby.startArticle;
-        setWaitingLobby(null);
-        setCountdownSeconds(null);
-        setFinishedLobby(null);
-        setGameStartedAtMs(Date.now());
+        setWaiting(null);
         lastProcessedPageUrlRef.current = '';
         hasLeftStartArticleRef.current = false;
-        setMoveChain(lobby.moveChain ?? null);
-        setActiveGame({
-          startTitle,
-          targetTitle: lobby.targetArticle.title,
-          iframeSrc: apiUrl('/wiki/' + encodeURIComponent(startTitle)),
-          seats: [...lobby.seats],
-          players: [...lobby.players],
-        });
-        // Seed every player's path with the start article as step 1
         const seed = new Map<string, PathMove[]>();
         for (const p of lobby.players) {
           seed.set(p.id, [
@@ -113,38 +125,51 @@ export default function App() {
             },
           ]);
         }
-        setPlayerMoves(seed);
+        setMatch({
+          status: 'playing',
+          startTitle,
+          targetTitle: lobby.targetArticle.title,
+          iframeSrc: apiUrl('/wiki/' + encodeURIComponent(startTitle)),
+          seats: [...lobby.seats],
+          players: [...lobby.players],
+          playerMoves: seed,
+          moveChain: lobby.moveChain ?? null,
+          startedAtMs: Date.now(),
+        });
         setScreen('game');
         break;
       }
       case 'move_made':
-        setPlayerMoves((prev) => {
-          const next = new Map(prev);
+        setMatch((prev) => {
+          if (prev.status !== 'playing') return prev;
           const pid = msg.payload.playerId;
-          if (!pid) return next;
-          const existing = next.get(pid) ?? [];
-          const last = existing[existing.length - 1];
-          if (last && last.url === msg.payload.url) {
-            return next;
-          }
-          next.set(pid, [
-            ...existing,
-            {
-              article: msg.payload.article,
-              url: msg.payload.url,
-              step: msg.payload.step,
-              end: msg.payload.end,
-              timestamp: Date.now(),
-            },
-          ]);
+          if (!pid) return prev;
+          const previousMoves = prev.playerMoves.get(pid) ?? [];
+          const lastMove = previousMoves[previousMoves.length - 1];
+          if (lastMove && lastMove.url === msg.payload.url) return prev;
+
+          const newMove = {
+            article: msg.payload.article,
+            url: msg.payload.url,
+            step: msg.payload.step,
+            end: msg.payload.end,
+            timestamp: Date.now(),
+          };
+          const next = new Map(prev.playerMoves);
+          next.set(pid, [...previousMoves, newMove]);
           console.log('next', next);
-          return next;
+          return { ...prev, playerMoves: next };
         });
         break;
       case 'game_over': {
         const { lobby } = msg.payload;
-        setMoveChain(lobby.moveChain ?? null);
-        setFinishedLobby(lobby);
+        setMatch((prev) => ({
+          status: 'finished' as const,
+          lobby,
+          moveChain: lobby.moveChain ?? null,
+          startedAtMs:
+            prev.status === 'playing' ? prev.startedAtMs : Date.now(),
+        }));
         setScreen('gameover');
         break;
       }
@@ -154,42 +179,41 @@ export default function App() {
     }
   };
 
-  const joinLobby = useCallback(
-    (lobbyId: string) => {
-      const prev = wsRef.current;
-      if (prev) {
-        prev.close();
+  const joinLobby = (lobbyId: string) => {
+    const prev = wsRef.current;
+    if (prev) {
+      prev.close();
+      wsRef.current = null;
+    }
+    const url = lobbyWebSocketUrl(lobbyId, playerName, myPlayerId);
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.addEventListener('open', () => {
+      setWaiting({
+        lobby: null,
+        info: 'Connected. Pick a seat when the lobby loads.',
+        countdownSeconds: null,
+      });
+      setScreen('waiting');
+    });
+
+    ws.addEventListener('message', (event) => {
+      const msg = JSON.parse(event.data) as ServerMessage;
+      handleServerMessage(msg);
+    });
+
+    ws.addEventListener('close', (event) => {
+      if (wsRef.current === ws) {
         wsRef.current = null;
       }
-      const url = lobbyWebSocketUrl(lobbyId, playerName, myPlayerId);
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
-
-      ws.addEventListener('open', () => {
-        setWaitingLobby(null);
-        setCountdownSeconds(null);
-        setWaitingInfo('Connected. Pick a seat when the lobby loads.');
-        setScreen('waiting');
-      });
-
-      ws.addEventListener('message', (event) => {
-        const msg = JSON.parse(event.data) as ServerMessage;
-        handleServerMessage(msg);
-      });
-
-      ws.addEventListener('close', (event) => {
-        if (wsRef.current === ws) {
-          wsRef.current = null;
-        }
-        if (event.code >= 4000) {
-          window.alert(event.reason || 'Could not join lobby.');
-          setScreen('lobbies');
-          refreshLobbies();
-        }
-      });
-    },
-    [playerName, handleServerMessage, refreshLobbies]
-  );
+      if (event.code >= 4000) {
+        window.alert(event.reason || 'Could not join lobby.');
+        setScreen('lobbies');
+        refreshLobbies();
+      }
+    });
+  };
 
   const onAliasSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,13 +239,10 @@ export default function App() {
   };
 
   const onWikiFrameLoad = () => {
-    const game = activeGame;
-    if (!game) return;
+    if (match.status !== 'playing') return;
 
     const frame = wikiRef.current;
-    if (!frame) {
-      return;
-    }
+    if (!frame) return;
 
     try {
       let href = frame.src;
@@ -230,16 +251,12 @@ export default function App() {
           href = frame.contentWindow.location.href;
         }
       } catch {
-        // Cross-origin iframe location reads can throw; fallback to frame.src/message bridge.
         console.log('cross-origin iframe; falling back to frame.src');
       }
-      if (!href) {
-        return;
-      }
+      if (!href) return;
+
       const url = new URL(href, window.location.href);
-      if (url.origin !== window.location.origin) {
-        return;
-      }
+      if (url.origin !== window.location.origin) return;
 
       let rawTitle: string | null = null;
       if (url.pathname.startsWith('/wiki/')) {
@@ -252,18 +269,14 @@ export default function App() {
         return;
       }
 
-      if (!rawTitle) {
-        return;
-      }
+      if (!rawTitle) return;
 
       const title = rawTitle.replace(/_/g, ' ');
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
       if (pageUrl === lastProcessedPageUrlRef.current) return;
 
       const isStartArticle =
-        title.toLowerCase() === game.startTitle.toLowerCase();
-      // Do not record a move for the opening article (already step 1 in the seed).
-      // After leaving start, returning to start (e.g. A→B→A) should record normally.
+        title.toLowerCase() === match.startTitle.toLowerCase();
       if (isStartArticle && !hasLeftStartArticleRef.current) {
         lastProcessedPageUrlRef.current = pageUrl;
         return;
@@ -272,12 +285,10 @@ export default function App() {
       lastProcessedPageUrlRef.current = pageUrl;
 
       const isTargetUrl =
-        title.toLowerCase() === game.targetTitle.toLowerCase();
+        title.toLowerCase() === match.targetTitle.toLowerCase();
 
       const ws = wsRef.current;
-      if (ws?.readyState !== WebSocket.OPEN) {
-        return;
-      }
+      if (ws?.readyState !== WebSocket.OPEN) return;
       ws.send(
         JSON.stringify({
           type: 'move',
@@ -289,13 +300,9 @@ export default function App() {
         hasLeftStartArticleRef.current = true;
       }
 
-      if (isTargetUrl) {
-        // Server will broadcast `game_over` after recording this winning move.
-        return;
-      }
+      if (isTargetUrl) return;
     } catch (e) {
       console.log(e);
-      return;
     }
   };
 
@@ -308,7 +315,9 @@ export default function App() {
         const url = new URL(data.href);
         if (url.pathname.startsWith('/wiki/')) {
           const href = `${url.origin}${url.pathname}${url.search}${url.hash}`;
-          setActiveGame((g) => (g ? { ...g, iframeSrc: href } : null));
+          setMatch((prev) =>
+            prev.status === 'playing' ? { ...prev, iframeSrc: href } : prev
+          );
         }
       } catch {
         // Ignore malformed message payloads.
@@ -322,13 +331,8 @@ export default function App() {
   const onBackToLobbies = () => {
     wsRef.current?.close();
     wsRef.current = null;
-    setActiveGame(null);
-    setPlayerMoves(new Map());
-    setMoveChain(null);
-    setGameStartedAtMs(null);
-    setFinishedLobby(null);
-    setWaitingLobby(null);
-    setCountdownSeconds(null);
+    setMatch({ status: 'idle' });
+    setWaiting(null);
     hasLeftStartArticleRef.current = false;
     lastProcessedPageUrlRef.current = '';
     setScreen('lobbies');
@@ -361,7 +365,6 @@ export default function App() {
     );
   }, []);
 
-  /* Path sidebar only while the race is active. */
   const showMoveSidebar = screen === 'game';
 
   const layoutClass = [
@@ -371,9 +374,17 @@ export default function App() {
     .filter(Boolean)
     .join(' ');
 
+  const finishedMatch = match.status === 'finished' ? match : null;
   const resultsPaths = useMemo(
-    () => moveChainToResultsPaths(moveChain, finishedLobby, gameStartedAtMs),
-    [moveChain, finishedLobby, gameStartedAtMs]
+    () =>
+      finishedMatch
+        ? moveChainToResultsPaths(
+            finishedMatch.moveChain,
+            finishedMatch.lobby,
+            finishedMatch.startedAtMs
+          )
+        : moveChainToResultsPaths(null, null, null),
+    [finishedMatch]
   );
 
   return (
@@ -461,12 +472,12 @@ export default function App() {
             screen === 'waiting' ? 'active' : ''
           }`}
         >
-          {countdownSeconds !== null && (
+          {waiting?.countdownSeconds != null && (
             <div className='countdown-overlay' role='status' aria-live='polite'>
               <div className='countdown-overlay-inner'>
                 <p className='countdown-overlay-label'>Starting in</p>
                 <div className='countdown-overlay-number'>
-                  {countdownSeconds}
+                  {waiting.countdownSeconds}
                 </div>
                 <p className='countdown-overlay-sub'>
                   The start article will be revealed next
@@ -475,18 +486,18 @@ export default function App() {
             </div>
           )}
           <div className='card waiting-room-card'>
-            {waitingLobby ? (
+            {waiting?.lobby ? (
               <WaitingRoom
-                lobby={waitingLobby}
+                lobby={waiting.lobby}
                 myPlayerId={myPlayerId}
-                statusLine={waitingInfo}
+                statusLine={waiting.info}
                 onClaimSeat={claimSeat}
                 onSetReady={setReady}
               />
             ) : (
               <>
                 <h2>Connecting…</h2>
-                <p className='waiting-info'>{waitingInfo}</p>
+                <p className='waiting-info'>{waiting?.info}</p>
                 <div className='loader' />
               </>
             )}
@@ -494,18 +505,16 @@ export default function App() {
         </div>
 
         {/* ── Game screen ── */}
-        {screen === 'game' && activeGame && (
+        {screen === 'game' && match.status === 'playing' && (
           <div className='screen active screen-game'>
             <GameScreen
               myPlayerId={myPlayerId}
-              players={activeGame.seats
+              players={match.seats
                 .map((playerId, seatIndex) => {
                   if (!playerId) return null;
-                  const player = activeGame.players.find(
-                    (p) => p.id === playerId
-                  );
+                  const player = match.players.find((p) => p.id === playerId);
                   if (!player) return null;
-                  const moves = playerMoves.get(playerId) ?? [];
+                  const moves = match.playerMoves.get(playerId) ?? [];
                   const finished = moves.some((m) => m.end);
                   return {
                     id: player.id,
@@ -516,9 +525,9 @@ export default function App() {
                   };
                 })
                 .filter((p): p is NonNullable<typeof p> => p !== null)}
-              startArticle={activeGame.startTitle}
-              targetArticle={activeGame.targetTitle}
-              iframeSrc={activeGame.iframeSrc}
+              startArticle={match.startTitle}
+              targetArticle={match.targetTitle}
+              iframeSrc={match.iframeSrc}
               onWikiFrameLoad={onWikiFrameLoad}
               wikiRef={wikiRef}
             />
@@ -532,9 +541,9 @@ export default function App() {
           }`}
         >
           <div className='card'>
-            {finishedLobby && (
+            {match.status === 'finished' && (
               <EndScreen
-                lobby={finishedLobby}
+                lobby={match.lobby}
                 currentPlayerId={myPlayerId}
                 onBackToLobbies={onBackToLobbies}
                 onViewResults={onViewResults}
@@ -550,8 +559,6 @@ export default function App() {
           </div>
         )}
       </div>
-
-      {/* <MovesDevSidebar moveChain={moveChain} visible={showMoveSidebar} /> */}
     </div>
   );
 }

@@ -13,14 +13,6 @@ export interface MoveListNodeSnapshot {
   playerId?: string | null;
 }
 
-export interface ActiveGame {
-  startTitle: string;
-  targetTitle: string;
-  iframeSrc: string;
-  seats: (string | null)[];
-  players: { id: string; name: string }[];
-}
-
 export interface Player {
   id: UUID;
   name: string;
