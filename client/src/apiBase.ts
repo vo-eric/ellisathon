@@ -5,7 +5,15 @@
  */
 function backendOrigin(): string {
   const configured = (import.meta.env.BACKEND_API_URL ?? '').replace(/\/$/, '');
-  return import.meta.env.DEV ? '' : configured;
+  if (import.meta.env.DEV) {
+    return '';
+  }
+  if (!configured && typeof window !== 'undefined') {
+    console.warn(
+      '[api] BACKEND_API_URL was empty at build time; API and WebSocket use the page origin. Set BACKEND_API_URL (or VITE_BACKEND_API_URL) in your CI/hosting env when the Worker is on another domain.'
+    );
+  }
+  return configured;
 }
 
 /** Absolute or same-origin path for fetch() and iframe src. */

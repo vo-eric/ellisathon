@@ -46,12 +46,15 @@ interface UseLobbySocketOptions {
   myPlayerId: string;
   /** Called when refs managed outside this hook need resetting (game start / back to lobbies). */
   onResetNavigation: () => void;
+  /** Server confirms our player id after WS connect (keeps client in sync with query param). */
+  onPlayerIdFromServer?: (playerId: string) => void;
 }
 
 export function useLobbySocket({
   playerName,
   myPlayerId,
   onResetNavigation,
+  onPlayerIdFromServer,
 }: UseLobbySocketOptions) {
   const [screen, setScreen] = useState<Screen>('alias');
   const [lobbies, setLobbies] = useState<LobbySnapshot[]>([]);
@@ -80,13 +83,18 @@ export function useLobbySocket({
 
   const handleServerMessage = (msg: ServerMessage) => {
     switch (msg.type) {
-      case 'lobby_state':
+      case 'lobby_state': {
+        const pid = msg.payload.playerId;
+        if (pid) {
+          onPlayerIdFromServer?.(pid);
+        }
         setWaiting((prev) =>
           prev
             ? { ...prev, lobby: msg.payload.lobby }
             : { lobby: msg.payload.lobby, info: '', countdownSeconds: null }
         );
         break;
+      }
       case 'lobby_sync':
         setWaiting((prev) =>
           prev

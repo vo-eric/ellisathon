@@ -32,6 +32,7 @@ export default function App() {
     playerName,
     myPlayerId,
     onResetNavigation: () => resetRefs(),
+    onPlayerIdFromServer: setMyPlayerId,
   });
 
   const isPlaying = match.status === 'playing';
