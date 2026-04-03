@@ -13,14 +13,20 @@ export interface MoveListNodeSnapshot {
   playerId?: string | null;
 }
 
+export interface ActiveGame {
+  startTitle: string;
+  targetTitle: string;
+  iframeSrc: string;
+  seats: (string | null)[];
+  players: { id: string; name: string }[];
+}
+
 export interface Player {
   id: UUID;
   name: string;
   winner: boolean;
   moves: PathMove[];
 }
-
-type GameState = 'pending' | 'started' | 'ended';
 
 export interface Article {
   url: string | null;
@@ -39,13 +45,6 @@ export interface LobbySnapshot {
   targetArticle: Article;
   winnerId: string | null;
   maxPlayers: number;
-}
-
-export interface Game {
-  gameState: GameState;
-  startArticle: Article | null;
-  targetArticle: Article | null;
-  players: Player[];
 }
 
 export type ServerMessage =

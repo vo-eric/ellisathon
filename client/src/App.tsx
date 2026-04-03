@@ -9,20 +9,13 @@ import type {
   LobbySnapshot,
   MoveListNodeSnapshot,
   ServerMessage,
+  ActiveGame,
 } from './types';
 import { apiUrl, lobbyWebSocketUrl } from './apiBase';
 
 type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover' | 'results';
 
-// const initialGameState: Game = {
-//   gameState: 'pending',
-//   startArticle: null,
-//   targetArticle: null,
-//   players: [],
-// };
-
 export default function App() {
-  // const gameState = useState<Game>(initialGameState);
   const [screen, setScreen] = useState<Screen>('alias');
   const [aliasInput, setAliasInput] = useState('');
   const [playerName, setPlayerName] = useState('');
@@ -35,15 +28,7 @@ export default function App() {
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [creatingLobby, setCreatingLobby] = useState(false);
 
-  const [gameTarget, setGameTarget] = useState('');
-  const [gameStartArticle, setGameStartArticle] = useState('');
-  const [, setGameCurrent] = useState('');
-  const [, setMoveCount] = useState(0);
-  const [iframeSrc, setIframeSrc] = useState<string | null>(null);
-  const [gameSeatOrder, setGameSeatOrder] = useState<(string | null)[]>([]);
-  const [gamePlayers, setGamePlayers] = useState<
-    { id: string; name: string }[]
-  >([]);
+  const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
   const [playerMoves, setPlayerMoves] = useState<Map<string, PathMove[]>>(
     () => new Map()
   );
@@ -58,7 +43,6 @@ export default function App() {
 
   const wsRef = useRef<WebSocket | null>(null);
   const wikiRef = useRef<HTMLIFrameElement>(null);
-  const currentArticleRef = useRef('');
   const lastProcessedPageUrlRef = useRef('');
   /** True after the player has navigated to any article other than the start (allows A→B→A to count A again). */
   const hasLeftStartArticleRef = useRef(false);
@@ -101,31 +85,28 @@ export default function App() {
         break;
       case 'game_start': {
         const lobby = msg.payload;
-        const start = lobby.startArticle ?? '';
+        const { title: startTitle } = lobby.startArticle;
         setWaitingLobby(null);
         setCountdownSeconds(null);
         setFinishedLobby(null);
         setGameStartedAtMs(Date.now());
-        currentArticleRef.current = start.title;
         lastProcessedPageUrlRef.current = '';
         hasLeftStartArticleRef.current = false;
-        setGameTarget(lobby.targetArticle.title);
-        setGameStartArticle(start.title);
-        setGameCurrent(start.title);
-        setMoveCount(0);
         setMoveChain(lobby.moveChain ?? null);
-        setIframeSrc(apiUrl('/wiki/' + encodeURIComponent(start.title)));
-        setGameSeatOrder(lobby.seats);
-        setGamePlayers(lobby.players);
+        setActiveGame({
+          startTitle,
+          targetTitle: lobby.targetArticle.title,
+          iframeSrc: apiUrl('/wiki/' + encodeURIComponent(startTitle)),
+          seats: [...lobby.seats],
+          players: [...lobby.players],
+        });
         // Seed every player's path with the start article as step 1
         const seed = new Map<string, PathMove[]>();
         for (const p of lobby.players) {
           seed.set(p.id, [
             {
-              article: start.title,
-              url: `/wiki/${encodeURIComponent(
-                start.title.replace(/ /g, '_')
-              )}`,
+              article: startTitle,
+              url: `/wiki/${encodeURIComponent(startTitle.replace(/ /g, '_'))}`,
               step: 1,
               end: false,
               timestamp: Date.now(),
@@ -234,6 +215,9 @@ export default function App() {
   };
 
   const onWikiFrameLoad = () => {
+    const game = activeGame;
+    if (!game) return;
+
     const frame = wikiRef.current;
     if (!frame) {
       return;
@@ -250,13 +234,11 @@ export default function App() {
         console.log('cross-origin iframe; falling back to frame.src');
       }
       if (!href) {
-        console.log('there is no href');
-        // return;
+        return;
       }
       const url = new URL(href, window.location.href);
       if (url.origin !== window.location.origin) {
-        console.log('there is no origin');
-        // return;
+        return;
       }
 
       let rawTitle: string | null = null;
@@ -267,14 +249,11 @@ export default function App() {
           url.pathname.replace('/api/rest_v1/page/summary/', '')
         );
       } else {
-        console.log('lol else fuck off');
-        // return;
+        return;
       }
 
       if (!rawTitle) {
-        console.log('no raw title');
-        rawTitle = 'http://lolfuck.you';
-        // return;
+        return;
       }
 
       const title = rawTitle.replace(/_/g, ' ');
@@ -282,7 +261,7 @@ export default function App() {
       if (pageUrl === lastProcessedPageUrlRef.current) return;
 
       const isStartArticle =
-        title.toLowerCase() === gameStartArticle.toLowerCase();
+        title.toLowerCase() === game.startTitle.toLowerCase();
       // Do not record a move for the opening article (already step 1 in the seed).
       // After leaving start, returning to start (e.g. A→B→A) should record normally.
       if (isStartArticle && !hasLeftStartArticleRef.current) {
@@ -292,10 +271,8 @@ export default function App() {
 
       lastProcessedPageUrlRef.current = pageUrl;
 
-      const isTargetUrl = title.toLowerCase() === gameTarget.toLowerCase();
-
-      currentArticleRef.current = title;
-      setGameCurrent(title);
+      const isTargetUrl =
+        title.toLowerCase() === game.targetTitle.toLowerCase();
 
       const ws = wsRef.current;
       if (ws?.readyState !== WebSocket.OPEN) {
@@ -316,8 +293,6 @@ export default function App() {
         // Server will broadcast `game_over` after recording this winning move.
         return;
       }
-
-      setMoveCount((c) => c + 1);
     } catch (e) {
       console.log(e);
       return;
@@ -332,7 +307,8 @@ export default function App() {
       try {
         const url = new URL(data.href);
         if (url.pathname.startsWith('/wiki/')) {
-          setIframeSrc(`${url.origin}${url.pathname}${url.search}${url.hash}`);
+          const href = `${url.origin}${url.pathname}${url.search}${url.hash}`;
+          setActiveGame((g) => (g ? { ...g, iframeSrc: href } : null));
         }
       } catch {
         // Ignore malformed message payloads.
@@ -346,9 +322,7 @@ export default function App() {
   const onBackToLobbies = () => {
     wsRef.current?.close();
     wsRef.current = null;
-    setIframeSrc(null);
-    setGameSeatOrder([]);
-    setGamePlayers([]);
+    setActiveGame(null);
     setPlayerMoves(new Map());
     setMoveChain(null);
     setGameStartedAtMs(null);
@@ -520,14 +494,16 @@ export default function App() {
         </div>
 
         {/* ── Game screen ── */}
-        {screen === 'game' && (
+        {screen === 'game' && activeGame && (
           <div className='screen active screen-game'>
             <GameScreen
               myPlayerId={myPlayerId}
-              players={gameSeatOrder
+              players={activeGame.seats
                 .map((playerId, seatIndex) => {
                   if (!playerId) return null;
-                  const player = gamePlayers.find((p) => p.id === playerId);
+                  const player = activeGame.players.find(
+                    (p) => p.id === playerId
+                  );
                   if (!player) return null;
                   const moves = playerMoves.get(playerId) ?? [];
                   const finished = moves.some((m) => m.end);
@@ -540,9 +516,9 @@ export default function App() {
                   };
                 })
                 .filter((p): p is NonNullable<typeof p> => p !== null)}
-              startArticle={gameStartArticle}
-              targetArticle={gameTarget}
-              iframeSrc={iframeSrc}
+              startArticle={activeGame.startTitle}
+              targetArticle={activeGame.targetTitle}
+              iframeSrc={activeGame.iframeSrc}
               onWikiFrameLoad={onWikiFrameLoad}
               wikiRef={wikiRef}
             />
