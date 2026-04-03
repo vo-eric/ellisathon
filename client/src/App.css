@@ -515,6 +515,11 @@ button:disabled {
   background: var(--bg);
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  /* Reset gradient-title WebKit props so they don’t inherit from siblings (Safari). */
+  color: var(--text);
+  -webkit-text-fill-color: var(--text);
+  background-clip: border-box;
+  -webkit-background-clip: border-box;
 }
 
 .waiting-room-target-label {
@@ -533,6 +538,10 @@ button:disabled {
   margin: 0 0 10px;
   line-height: 1.3;
   word-break: break-word;
+  -webkit-text-fill-color: var(--green);
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
 }
 
 .waiting-room-target-note {
@@ -958,6 +967,10 @@ button:disabled {
 
 .game-article-name.target {
   color: var(--text);
+  -webkit-text-fill-color: var(--text);
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
 }
 
 .target-chip-wrapper {

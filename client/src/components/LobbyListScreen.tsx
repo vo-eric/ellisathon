@@ -1,4 +1,5 @@
 import type { LobbySnapshot } from '../types';
+import { coerceArticle } from '../utils/lobbyWire';
 
 interface LobbyListScreenProps {
   playerName: string;
@@ -39,7 +40,8 @@ export function LobbyListScreen({
                 <div className='lobby-meta'>
                   <div className='lobby-articles'>
                     <span className='lobby-start-hidden'>Start hidden</span>{' '}
-                    &rarr; <strong>{lobby.targetArticle.title}</strong>
+                    &rarr;{' '}
+                    <strong>{coerceArticle(lobby.targetArticle).title}</strong>
                   </div>
                   <div className='lobby-players'>
                     {lobby.players.length}/{lobby.maxPlayers} players

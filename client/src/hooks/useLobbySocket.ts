@@ -6,6 +6,11 @@ import type {
 } from '../types';
 import type { PathMove } from './useReplay';
 import { apiUrl, lobbyWebSocketUrl } from '../apiBase';
+import {
+  normalizeLobbySnapshot,
+  normalizeLobbyList,
+  coerceArticle,
+} from '../utils/lobbyWire';
 
 export type Screen =
   | 'alias'
@@ -67,8 +72,8 @@ export function useLobbySocket({
   const refreshLobbies = useCallback(async () => {
     try {
       const res = await fetch(apiUrl('/api/lobbies/joinable'));
-      const data = (await res.json()) as LobbySnapshot[];
-      setLobbies(data);
+      const data = await res.json();
+      setLobbies(normalizeLobbyList(data));
     } catch (e) {
       console.error('Failed to fetch lobbies', e);
     }
@@ -88,20 +93,23 @@ export function useLobbySocket({
         if (pid) {
           onPlayerIdFromServer?.(pid);
         }
+        const lobby = normalizeLobbySnapshot(msg.payload.lobby);
         setWaiting((prev) =>
           prev
-            ? { ...prev, lobby: msg.payload.lobby }
-            : { lobby: msg.payload.lobby, info: '', countdownSeconds: null }
+            ? { ...prev, lobby }
+            : { lobby, info: '', countdownSeconds: null }
         );
         break;
       }
-      case 'lobby_sync':
+      case 'lobby_sync': {
+        const lobby = normalizeLobbySnapshot(msg.payload);
         setWaiting((prev) =>
           prev
-            ? { ...prev, lobby: msg.payload, countdownSeconds: null }
-            : { lobby: msg.payload, info: '', countdownSeconds: null }
+            ? { ...prev, lobby, countdownSeconds: null }
+            : { lobby, info: '', countdownSeconds: null }
         );
         break;
+      }
       case 'countdown_tick':
         setWaiting((prev) =>
           prev ? { ...prev, countdownSeconds: msg.payload.secondsLeft } : prev
@@ -120,8 +128,10 @@ export function useLobbySocket({
         );
         break;
       case 'game_start': {
-        const lobby = msg.payload;
-        const { title: startTitle } = lobby.startArticle;
+        const lobby = normalizeLobbySnapshot(msg.payload);
+        const startArt = coerceArticle(lobby.startArticle);
+        const targetArt = coerceArticle(lobby.targetArticle);
+        const startTitle = startArt.title;
         setWaiting(null);
         onResetNavigation();
         const seed = new Map<string, PathMove[]>();
@@ -139,7 +149,7 @@ export function useLobbySocket({
         setMatch({
           status: 'playing',
           startTitle,
-          targetTitle: lobby.targetArticle.title,
+          targetTitle: targetArt.title,
           iframeSrc: apiUrl('/wiki/' + encodeURIComponent(startTitle)),
           seats: [...lobby.seats],
           players: [...lobby.players],
@@ -172,7 +182,7 @@ export function useLobbySocket({
         });
         break;
       case 'game_over': {
-        const { lobby } = msg.payload;
+        const lobby = normalizeLobbySnapshot(msg.payload.lobby);
         setMatch((prev) => ({
           status: 'finished' as const,
           lobby,

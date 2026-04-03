@@ -1,4 +1,5 @@
 import type { LobbySnapshot, MoveListNodeSnapshot } from '../types';
+import { coerceArticle } from '../utils/lobbyWire';
 
 function movesForPlayerInChain(
   chain: MoveListNodeSnapshot | null,
@@ -36,7 +37,8 @@ const EndScreen = ({
       <h2>{isCurrentPlayerWinner ? 'You win!' : 'Game over.'}</h2>
       <p className='gameover-info'>
         {isCurrentPlayerWinner ? 'You' : winner?.name} reached{' '}
-        {lobby.targetArticle?.title} in {numberOfMovesByWinnner} moves.
+        {coerceArticle(lobby.targetArticle).title} in {numberOfMovesByWinnner}{' '}
+        moves.
       </p>
       <div style={{ display: 'flex', gap: '12px' }}>
         <button type='button' onClick={onBackToLobbies}>

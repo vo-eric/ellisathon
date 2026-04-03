@@ -30,7 +30,9 @@ export function TargetArticleChip({ title }: Props) {
   };
 
   const handleClick = () => {
-    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(
+      title.replace(/ /g, '_')
+    )}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -43,13 +45,15 @@ export function TargetArticleChip({ title }: Props) {
       <span
         className='game-article-name target'
         onClick={handleClick}
-        style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+        style={{
+          cursor: 'pointer',
+          textDecoration: 'underline',
+          textUnderlineOffset: '3px',
+        }}
       >
         {title}
       </span>
-      {visible && summary && (
-        <span className='target-tooltip'>{summary}</span>
-      )}
+      {visible && summary && <span className='target-tooltip'>{summary}</span>}
     </span>
   );
 }

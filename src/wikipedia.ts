@@ -17,6 +17,6 @@ export async function getRandomArticles(): Promise<{
 
   return {
     start: { title: start.title, url: start.url },
-    target: { title: target.title, url: start.url },
+    target: { title: target.title, url: target.url },
   };
 }

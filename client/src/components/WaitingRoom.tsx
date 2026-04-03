@@ -1,4 +1,5 @@
 import type { LobbySnapshot } from '../types';
+import { coerceArticle } from '../utils/lobbyWire';
 import { TargetArticleChip } from './TargetArticleChip';
 
 type Props = {
@@ -26,6 +27,7 @@ export function WaitingRoom({
 }: Props) {
   const seats = lobby.seats ?? [];
   const seatReady = lobby.seatReady ?? [];
+  const targetTitle = coerceArticle(lobby.targetArticle).title;
 
   const allSeatsFilled = seats.every((s) => s !== null);
   return (
@@ -36,7 +38,7 @@ export function WaitingRoom({
       <div className='waiting-room-target-only'>
         <p className='waiting-room-target-label'>Goal article</p>
         <p className='waiting-room-target-name'>
-          <TargetArticleChip title={lobby.targetArticle.title} />
+          <TargetArticleChip key={lobby.id} title={targetTitle} />
         </p>
         <p className='waiting-room-target-note'>
           The starting article stays hidden until everyone is seated, ready, and
