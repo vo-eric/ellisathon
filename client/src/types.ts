@@ -1,3 +1,6 @@
+import { UUID } from 'crypto';
+import { PathMove } from './hooks/useReplay';
+
 export type LobbyStatus = 'waiting' | 'in_progress' | 'finished';
 
 export interface MoveListNodeSnapshot {
@@ -10,18 +13,39 @@ export interface MoveListNodeSnapshot {
   playerId?: string | null;
 }
 
+export interface Player {
+  id: UUID;
+  name: string;
+  winner: boolean;
+  moves: PathMove[];
+}
+
+type GameState = 'pending' | 'started' | 'ended';
+
+export interface Article {
+  url: string | null;
+  title: string;
+}
+
 export interface LobbySnapshot {
   id: string;
   status: LobbyStatus;
-  players: { id: string; name: string }[];
+  players: Player[];
   seats: (string | null)[];
   seatReady: boolean[];
   moveChain: MoveListNodeSnapshot | null;
   /** null while waiting (start page hidden until countdown ends). */
-  startArticle: string | null;
-  targetArticle: string;
+  startArticle: Article;
+  targetArticle: Article;
   winnerId: string | null;
   maxPlayers: number;
+}
+
+export interface Game {
+  gameState: GameState;
+  startArticle: Article | null;
+  targetArticle: Article | null;
+  players: Player[];
 }
 
 export type ServerMessage =

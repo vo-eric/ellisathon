@@ -10,10 +10,8 @@ import type {
   ServerMessage,
 } from './types';
 import { apiUrl, lobbyWebSocketUrl } from './apiBase';
-import { UUID } from 'node:crypto';
 
 type Screen = 'alias' | 'lobbies' | 'waiting' | 'game' | 'gameover' | 'results';
-type GameState = 'pending' | 'started' | 'ended';
 
 function escapeHtml(str: string): string {
   const div = document.createElement('div');
@@ -31,34 +29,15 @@ function transitionCountFromChain(chain: MoveListNodeSnapshot | null): number {
   return n;
 }
 
-interface Article {
-  url: string;
-  title: string;
-}
-
-export interface Player {
-  id: UUID;
-  name: string;
-  winner: boolean;
-  moves: PathMove[];
-}
-
-export interface Game {
-  gameState: GameState;
-  startArticle: Article | null;
-  targetArticle: Article | null;
-  players: Player[];
-}
-
-const initialGameState: Game = {
-  gameState: 'pending',
-  startArticle: null,
-  targetArticle: null,
-  players: [],
-};
+// const initialGameState: Game = {
+//   gameState: 'pending',
+//   startArticle: null,
+//   targetArticle: null,
+//   players: [],
+// };
 
 export default function App() {
-  const gameState = useState<Game>(initialGameState);
+  // const gameState = useState<Game>(initialGameState);
   const [screen, setScreen] = useState<Screen>('alias');
   const [aliasInput, setAliasInput] = useState('');
   const [playerName, setPlayerName] = useState('');
@@ -145,15 +124,15 @@ export default function App() {
         setCountdownSeconds(null);
         setFinishedLobby(null);
         setGameStartedAtMs(Date.now());
-        currentArticleRef.current = start;
+        currentArticleRef.current = start.title;
         lastProcessedPageUrlRef.current = '';
         hasLeftStartArticleRef.current = false;
-        setGameTarget(lobby.targetArticle);
-        setGameStartArticle(start);
-        setGameCurrent(start);
+        setGameTarget(lobby.targetArticle.title);
+        setGameStartArticle(start.title);
+        setGameCurrent(start.title);
         setMoveCount(0);
         setMoveChain(lobby.moveChain ?? null);
-        setIframeSrc(apiUrl('/wiki/' + encodeURIComponent(start)));
+        setIframeSrc(apiUrl('/wiki/' + encodeURIComponent(start.title)));
         setGameSeatOrder(lobby.seats);
         setGamePlayers(lobby.players);
         // Seed every player's path with the start article as step 1
@@ -161,8 +140,10 @@ export default function App() {
         for (const p of lobby.players) {
           seed.set(p.id, [
             {
-              article: start,
-              url: `/wiki/${encodeURIComponent(start.replace(/ /g, '_'))}`,
+              article: start.title,
+              url: `/wiki/${encodeURIComponent(
+                start.title.replace(/ /g, '_')
+              )}`,
               step: 1,
               end: false,
               timestamp: Date.now(),
@@ -174,8 +155,6 @@ export default function App() {
         break;
       }
       case 'move_made':
-        console.log('move has been made');
-        console.log('message', msg);
         setPlayerMoves((prev) => {
           const next = new Map(prev);
           const pid = msg.payload.playerId;
@@ -205,16 +184,14 @@ export default function App() {
         const { winnerId, lobby } = msg.payload;
         const winner = lobby.players.find((p) => p.id === winnerId);
         const isMe = winnerId === myPlayerId;
-        console.log('winner winner chicken dinner');
-        console.log('winner', winner);
-        console.log('me', myPlayerId);
+        // <EndScreen />;
         setGameoverTitle(isMe ? 'You Win!' : 'Game Over');
         const tc = transitionCountFromChain(lobby.moveChain);
         setGameoverHtml(
           `<strong>${escapeHtml(
             winner?.name ?? 'Unknown'
           )}</strong> reached <strong>${escapeHtml(
-            lobby.targetArticle
+            lobby.targetArticle.title
           )}</strong> in <strong>${tc}</strong> moves.`
         );
         setMoveChain(lobby.moveChain ?? null);
@@ -290,15 +267,12 @@ export default function App() {
 
   const onWikiFrameLoad = () => {
     const frame = wikiRef.current;
-    console.log('frame!?', frame);
     if (!frame) {
-      console.log('there is no frame');
       return;
     }
 
     try {
       let href = frame.src;
-      console.log('framesource', frame.src);
       try {
         if (frame.contentWindow?.location?.href) {
           href = frame.contentWindow.location.href;
@@ -307,14 +281,11 @@ export default function App() {
         // Cross-origin iframe location reads can throw; fallback to frame.src/message bridge.
         console.log('cross-origin iframe; falling back to frame.src');
       }
-      console.log('FIUCK YOU', href);
       if (!href) {
         console.log('there is no href');
         // return;
       }
       const url = new URL(href, window.location.href);
-      console.log('origin', url.origin);
-      console.log('pathname', url.pathname);
       if (url.origin !== window.location.origin) {
         console.log('there is no origin');
         // return;
@@ -332,7 +303,6 @@ export default function App() {
         // return;
       }
 
-      console.log('raw title', rawTitle);
       if (!rawTitle) {
         console.log('no raw title');
         rawTitle = 'http://lolfuck.you';
@@ -340,12 +310,7 @@ export default function App() {
       }
 
       const title = rawTitle.replace(/_/g, ' ');
-      console.log('title replaced', title);
-      console.log('curren', currentArticleRef.current);
-      console.log('game start article', gameStartArticle);
       const pageUrl = `${url.origin}${url.pathname}${url.search}${url.hash}`;
-      console.log('page url', pageUrl);
-      console.log('last processed', lastProcessedPageUrlRef);
       if (pageUrl === lastProcessedPageUrlRef.current) return;
 
       const isStartArticle =
@@ -365,9 +330,7 @@ export default function App() {
       setGameCurrent(title);
 
       const ws = wsRef.current;
-      console.log('SOCKET TO ME', ws);
       if (ws?.readyState !== WebSocket.OPEN) {
-        console.log('lol no socket fuck you');
         return;
       }
       ws.send(
@@ -396,7 +359,6 @@ export default function App() {
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string; href?: string } | null;
-      console.log('data', data);
       if (!data || data.type !== 'wiki:navigated' || !data.href) return;
 
       try {
@@ -531,7 +493,7 @@ export default function App() {
                     <div className='lobby-meta'>
                       <div className='lobby-articles'>
                         <span className='lobby-start-hidden'>Start hidden</span>{' '}
-                        &rarr; <strong>{lobby.targetArticle}</strong>
+                        &rarr; <strong>{lobby.targetArticle.title}</strong>
                       </div>
                       <div className='lobby-players'>
                         {lobby.players.length}/{lobby.maxPlayers} players

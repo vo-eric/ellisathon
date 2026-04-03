@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
+import { Article } from './types';
 
 const DB_FILE = path.join(process.cwd(), 'data', 'lobbies.sqlite');
 
@@ -19,8 +20,8 @@ export type MoveRow = {
 export type LobbyPersistence = {
   insertLobbyRow: (row: {
     id: string;
-    startarticle: string;
-    targetarticle: string;
+    startarticle: Article;
+    targetarticle: Article;
     playercount: number;
     createdat: number;
   }) => void;
@@ -63,7 +64,9 @@ function initSchema(db: Database.Database): void {
 
 /** Older DBs only had lobbyid + createdat; add columns in place. */
 function migrateMovesTable(db: Database.Database): void {
-  const cols = db.prepare(`PRAGMA table_info(moves)`).all() as { name: string }[];
+  const cols = db.prepare(`PRAGMA table_info(moves)`).all() as {
+    name: string;
+  }[];
   if (cols.some((c) => c.name === 'step')) return;
   try {
     db.exec(`
@@ -128,8 +131,7 @@ export function createLobbyPersistence(): LobbyPersistence {
     };
 
     return {
-      insertLobbyRow: (row) =>
-        run('insertLobbyRow', () => insLobby.run(row)),
+      insertLobbyRow: (row) => run('insertLobbyRow', () => insLobby.run(row)),
       insertMoveRow: (row) =>
         run('insertMoveRow', () =>
           insMove.run({
@@ -142,8 +144,7 @@ export function createLobbyPersistence(): LobbyPersistence {
             createdat: row.createdat,
           })
         ),
-      finalizeLobbyRow: (args) =>
-        run('finalizeLobbyRow', () => fin.run(args)),
+      finalizeLobbyRow: (args) => run('finalizeLobbyRow', () => fin.run(args)),
     };
   } catch (err) {
     console.error('[lobbyDb] could not open database:', err);

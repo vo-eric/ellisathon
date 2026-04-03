@@ -31,6 +31,11 @@ export interface MoveListNodeSnapshot {
 
 export type LobbyStatus = 'waiting' | 'in_progress' | 'finished';
 
+export type Article = {
+  url: string;
+  title: string;
+};
+
 export interface Lobby {
   id: string;
   status: LobbyStatus;
@@ -45,10 +50,8 @@ export interface Lobby {
   createdAt: number;
   startedAt: number | null;
   finishedAt: number | null;
-  /** The starting Wikipedia article for this game */
-  startArticle: string;
-  /** The target Wikipedia article players race to reach */
-  targetArticle: string;
+  startArticle: Article;
+  targetArticle: Article;
   winnerId: string | null;
   maxPlayers: number;
 }
@@ -90,8 +93,8 @@ export interface LobbySnapshot {
   /** Head of the move chain for this lobby (null before game starts) */
   moveChain: MoveListNodeSnapshot | null;
   /** Hidden (null) while status is `waiting`; revealed after countdown when game starts. */
-  startArticle: string | null;
-  targetArticle: string;
+  startArticle: Article | null;
+  targetArticle: Article;
   winnerId: string | null;
   maxPlayers: number;
 }
