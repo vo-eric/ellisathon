@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import WebSocket from 'ws';
 import { noopLobbyPersistence, type LobbyPersistence } from './lobbyDb';
 import {
+  Article,
   Lobby,
   LobbySnapshot,
   MoveListNode,
@@ -39,7 +40,7 @@ export class LobbyManager {
     private readonly persist: LobbyPersistence = noopLobbyPersistence()
   ) {}
 
-  createLobby(startArticle: string, targetArticle: string): Lobby {
+  createLobby(startArticle: Article, targetArticle: Article): Lobby {
     const lobby: Lobby = {
       id: randomUUID(),
       status: 'waiting',
@@ -56,13 +57,13 @@ export class LobbyManager {
     };
     this.lobbies.set(lobby.id, lobby);
     this.moveChains.set(lobby.id, { head: null, tail: null });
-    this.persist.insertLobbyRow({
-      id: lobby.id,
-      startarticle: lobby.startArticle,
-      targetarticle: lobby.targetArticle,
-      playercount: lobby.maxPlayers,
-      createdat: lobby.createdAt,
-    });
+    // this.persist.insertLobbyRow({
+    //   id: lobby.id,
+    //   startarticle: lobby.startArticle,
+    //   targetarticle: lobby.targetArticle,
+    //   playercount: lobby.maxPlayers,
+    //   createdat: lobby.createdAt,
+    // });
     return lobby;
   }
 
@@ -104,14 +105,19 @@ export class LobbyManager {
       .map((l) => this.snapshot(l));
   }
 
-  addPlayer(lobbyId: string, playerName: string, ws: WebSocket): Player | null {
+  addPlayer(
+    lobbyId: string,
+    playerName: string,
+    playerId: string,
+    ws: WebSocket
+  ): Player | null {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return null;
     if (lobby.status !== 'waiting') return null;
     if (lobby.players.length >= lobby.maxPlayers) return null;
 
     const player: Player = {
-      id: randomUUID(),
+      id: playerId,
       name: playerName,
       ws,
       joinedAt: Date.now(),
@@ -261,10 +267,13 @@ export class LobbyManager {
     lobby.status = 'in_progress';
     lobby.startedAt = Date.now();
 
-    const url = wikipediaArticleUrl(lobby.startArticle);
-    const end = articlesMatch(lobby.startArticle, lobby.targetArticle);
+    const url = wikipediaArticleUrl(lobby.startArticle.url);
+    const end = articlesMatch(
+      lobby.startArticle.title,
+      lobby.targetArticle.title
+    );
     const first: MoveListNode = {
-      article: lobby.startArticle,
+      article: lobby.startArticle.title,
       url,
       step: 1,
       next: null,
@@ -274,16 +283,16 @@ export class LobbyManager {
     chain.head = first;
     chain.tail = first;
 
-    const t0 = Date.now();
-    this.persist.insertMoveRow({
-      lobbyid: lobbyId,
-      step: 1,
-      article: lobby.startArticle,
-      url,
-      end,
-      playerid: null,
-      createdat: t0,
-    });
+    // const t0 = Date.now();
+    // this.persist.insertMoveRow({
+    //   lobbyid: lobbyId,
+    //   step: 1,
+    //   article: lobby.startArticle.title,
+    //   url,
+    //   end,
+    //   playerid: null,
+    //   createdat: t0,
+    // });
 
     this.broadcast(lobby, {
       type: 'game_start',
@@ -315,7 +324,7 @@ export class LobbyManager {
 
     const step = chain.tail.step + 1;
     const resolvedUrl = url?.trim() || wikipediaArticleUrl(article);
-    const end = articlesMatch(article, lobby.targetArticle);
+    const end = articlesMatch(article, lobby.targetArticle.title);
 
     const node: MoveListNode = {
       article,
@@ -329,18 +338,16 @@ export class LobbyManager {
     chain.tail.next = node;
     chain.tail = node;
 
-    const t = Date.now();
-    this.persist.insertMoveRow({
-      lobbyid: lobbyId,
-      step,
-      article,
-      url: resolvedUrl,
-      end,
-      playerid: playerId,
-      createdat: t,
-    });
-
-    console.log('RECORDING MOVE');
+    // const t = Date.now();
+    // this.persist.insertMoveRow({
+    //   lobbyid: lobbyId,
+    //   step,
+    //   article,
+    //   url: resolvedUrl,
+    //   end,
+    //   playerid: playerId,
+    //   createdat: t,
+    // });
 
     this.broadcast(lobby, {
       type: 'move_made',
@@ -369,12 +376,12 @@ export class LobbyManager {
     lobby.winnerId = winnerId;
 
     const snap = this.snapshot(lobby);
-    this.persist.finalizeLobbyRow({
-      id: lobby.id,
-      finishedat: lobby.finishedAt,
-      winningplayer: winnerId,
-      playersJson: JSON.stringify(snap.players),
-    });
+    // this.persist.finalizeLobbyRow({
+    //   id: lobby.id,
+    //   finishedat: lobby.finishedAt,
+    //   winningplayer: winnerId,
+    //   playersJson: JSON.stringify(snap.players),
+    // });
 
     this.broadcast(lobby, {
       type: 'game_over',

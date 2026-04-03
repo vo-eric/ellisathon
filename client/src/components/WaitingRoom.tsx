@@ -28,7 +28,6 @@ export function WaitingRoom({
   const seatReady = lobby.seatReady ?? [];
 
   const allSeatsFilled = seats.every((s) => s !== null);
-
   return (
     <div className='waiting-room'>
       <h2 className='waiting-room-title'>Lobby</h2>
@@ -37,7 +36,7 @@ export function WaitingRoom({
       <div className='waiting-room-target-only'>
         <p className='waiting-room-target-label'>Goal article</p>
         <p className='waiting-room-target-name'>
-          <TargetArticleChip title={lobby.targetArticle} />
+          <TargetArticleChip title={lobby.targetArticle.title} />
         </p>
         <p className='waiting-room-target-note'>
           The starting article stays hidden until everyone is seated, ready, and

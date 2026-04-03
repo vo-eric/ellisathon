@@ -17,9 +17,10 @@ export function handleWsConnection(
   const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
   const lobbyId = url.searchParams.get('lobbyId');
   const playerName = url.searchParams.get('playerName');
+  const playerId = url.searchParams.get('playerId');
 
-  if (!lobbyId || !playerName) {
-    ws.close(4000, 'Missing lobbyId or playerName query params');
+  if (!lobbyId || !playerName || !playerId) {
+    ws.close(4000, 'Missing lobbyId, playerId, and/or playerName query params');
     return;
   }
 
@@ -29,7 +30,7 @@ export function handleWsConnection(
     return;
   }
 
-  const player = manager.addPlayer(lobbyId, playerName, ws);
+  const player = manager.addPlayer(lobbyId, playerName, playerId, ws);
   if (!player) {
     ws.close(4002, 'Could not join lobby (full or already started)');
     return;

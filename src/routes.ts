@@ -8,7 +8,7 @@ export function createRouter(manager: LobbyManager): Router {
   router.post('/lobbies', async (_req: Request, res: Response) => {
     try {
       const { start, target } = await getRandomArticles();
-      const lobby = manager.createLobby(start.title, target.title);
+      const lobby = manager.createLobby(start, target);
       res.status(201).json(manager.snapshot(lobby));
     } catch (err: unknown) {
       console.error('Wikipedia fetch error:', err);

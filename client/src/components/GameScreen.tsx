@@ -105,9 +105,6 @@ export function GameScreen({
             src={iframeSrc}
             onLoad={onWikiFrameLoad}
             onError={() => {
-              console.log('=========');
-              console.log('inside iframe onError');
-              console.log('=========');
               console.warn('Wiki iframe failed to load:', iframeSrc);
             }}
           />
