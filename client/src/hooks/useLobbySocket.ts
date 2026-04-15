@@ -202,7 +202,6 @@ export function useLobbySocket({
   };
 
   const joinLobby = (lobbyId: string) => {
-    console.log('about to join lobby');
     const prev = wsRef.current;
     if (prev) {
       prev.close();
@@ -212,10 +211,7 @@ export function useLobbySocket({
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
-    console.log('wd url', ws);
-
     ws.addEventListener('open', () => {
-      console.log('here we are');
       setWaiting({
         lobby: null,
         info: 'Connected. Pick a seat when the lobby loads.',
@@ -251,7 +247,6 @@ export function useLobbySocket({
       });
       if (!res.ok) throw new Error('Failed');
       const lobby = (await res.json()) as LobbySnapshot;
-      console.log('lobby', lobby);
       joinLobby(lobby.id);
     } catch {
       window.alert('Could not create lobby. Try again.');
@@ -309,8 +304,6 @@ export function useLobbySocket({
       prev.status === 'playing' ? { ...prev, iframeSrc: href } : prev
     );
   }, []);
-
-  console.log('match', match);
 
   return {
     screen,
