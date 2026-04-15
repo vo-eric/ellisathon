@@ -35,6 +35,8 @@ export default function App() {
     onPlayerIdFromServer: setMyPlayerId,
   });
 
+  console.log('match', match);
+
   const isPlaying = match.status === 'playing';
 
   const { wikiRef, onWikiFrameLoad, resetRefs } = useWikiNavigation({
