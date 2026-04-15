@@ -1,12 +1,6 @@
 import { LobbyManager } from './lobby';
 import { getRandomArticles } from './wikipedia';
-import { ClientMessage, Player } from './types';
-
-interface PlayerMeta {
-  lobbyId: string;
-  playerId: string;
-  playerName: string;
-}
+import { ClientMessage } from './types';
 
 export class LobbyManagerDO implements DurableObject {
   private manager = new LobbyManager();
@@ -21,155 +15,6 @@ export class LobbyManagerDO implements DurableObject {
     }
 
     return this.handleApi(request, url);
-  }
-
-  // ── WebSocket Hibernation handlers ──────────────────────────────────
-
-  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
-    const meta = ws.deserializeAttachment() as PlayerMeta | null;
-    if (!meta) return;
-
-    const lobby = this.manager.getLobby(meta.lobbyId);
-    if (!lobby) return;
-
-    const player = lobby.players.find((p) => p.id === meta.playerId);
-    if (!player) return;
-
-    let msg: ClientMessage;
-    try {
-      msg = JSON.parse(
-        typeof message === 'string'
-          ? message
-          : new TextDecoder().decode(message)
-      );
-    } catch {
-      this.manager.sendTo(player, {
-        type: 'error',
-        payload: { message: 'Invalid JSON' },
-      });
-      return;
-    }
-
-    switch (msg.type) {
-      case 'set_ready': {
-        const ready = msg.payload.ready;
-        if (typeof ready !== 'boolean') {
-          this.manager.sendTo(player, {
-            type: 'error',
-            payload: { message: 'set_ready requires boolean ready' },
-          });
-          return;
-        }
-        const ok = this.manager.setSeatReady(meta.lobbyId, player.id, ready);
-        if (!ok) {
-          this.manager.sendTo(player, {
-            type: 'error',
-            payload: {
-              message:
-                'Cannot set ready (you must be seated, or game already started)',
-            },
-          });
-        }
-        break;
-      }
-
-      case 'claim_seat': {
-        const seatIndex = msg.payload.seatIndex;
-        if (typeof seatIndex !== 'number' || !Number.isInteger(seatIndex)) {
-          this.manager.sendTo(player, {
-            type: 'error',
-            payload: { message: 'claim_seat requires integer seatIndex' },
-          });
-          return;
-        }
-        const ok = this.manager.claimSeat(meta.lobbyId, player.id, seatIndex);
-        if (!ok) {
-          this.manager.sendTo(player, {
-            type: 'error',
-            payload: {
-              message:
-                'Cannot claim that seat (taken, invalid index, or game already started)',
-            },
-          });
-        }
-        break;
-      }
-
-      case 'start_game': {
-        const err = this.manager.startGame(meta.lobbyId, player.id);
-        if (err) {
-          this.manager.sendTo(player, {
-            type: 'error',
-            payload: { message: err },
-          });
-        }
-        break;
-      }
-
-      case 'set_seats': {
-        const count = msg.payload.count;
-        if (typeof count !== 'number' || !Number.isInteger(count)) {
-          this.manager.sendTo(player, {
-            type: 'error',
-            payload: { message: 'set_seats requires integer count' },
-          });
-          return;
-        }
-        const err = this.manager.setSeats(meta.lobbyId, player.id, count);
-        if (err) {
-          this.manager.sendTo(player, {
-            type: 'error',
-            payload: { message: err },
-          });
-        }
-        break;
-      }
-
-      case 'move': {
-        const article = msg.payload.article as string | undefined;
-        if (!article) {
-          this.manager.sendTo(player, {
-            type: 'error',
-            payload: { message: "Move requires an 'article' field" },
-          });
-          return;
-        }
-        const moveUrl = msg.payload.url as string | undefined;
-        const move = this.manager.recordMove(
-          meta.lobbyId,
-          player.id,
-          article,
-          moveUrl
-        );
-        if (!move) {
-          this.manager.sendTo(player, {
-            type: 'error',
-            payload: {
-              message: 'Cannot record move — game may not be in progress',
-            },
-          });
-        }
-        break;
-      }
-
-      default:
-        this.manager.sendTo(player, {
-          type: 'error',
-          payload: { message: `Unknown message type: ${msg.type}` },
-        });
-    }
-  }
-
-  async webSocketClose(ws: WebSocket) {
-    const meta = ws.deserializeAttachment() as PlayerMeta | null;
-    if (!meta) return;
-    this.manager.removePlayer(meta.lobbyId, meta.playerId);
-  }
-
-  async webSocketError(ws: WebSocket) {
-    const meta = ws.deserializeAttachment() as PlayerMeta | null;
-    if (!meta) return;
-    this.manager.removePlayer(meta.lobbyId, meta.playerId);
   }
 
   // ── WebSocket upgrade ───────────────────────────────────────────────
@@ -194,12 +39,7 @@ export class LobbyManagerDO implements DurableObject {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
 
-    this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({
-      lobbyId,
-      playerId,
-      playerName,
-    } satisfies PlayerMeta);
+    server.accept();
 
     const player = this.manager.addPlayer(
       lobbyId,
@@ -211,6 +51,164 @@ export class LobbyManagerDO implements DurableObject {
       server.close(4002, 'Could not join lobby (game already started)');
       return new Response(null, { status: 101, webSocket: client });
     }
+
+    server.addEventListener('message', (event) => {
+      const currentLobby = this.manager.getLobby(lobbyId);
+      if (!currentLobby) return;
+
+      const currentPlayer = currentLobby.players.find(
+        (p) => p.id === playerId
+      );
+      if (!currentPlayer) return;
+
+      let msg: ClientMessage;
+      try {
+        msg = JSON.parse(
+          typeof event.data === 'string'
+            ? event.data
+            : new TextDecoder().decode(event.data as ArrayBuffer)
+        );
+      } catch {
+        this.manager.sendTo(currentPlayer, {
+          type: 'error',
+          payload: { message: 'Invalid JSON' },
+        });
+        return;
+      }
+
+      switch (msg.type) {
+        case 'set_ready': {
+          const ready = msg.payload.ready;
+          if (typeof ready !== 'boolean') {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: 'set_ready requires boolean ready' },
+            });
+            return;
+          }
+          const ok = this.manager.setSeatReady(
+            lobbyId,
+            currentPlayer.id,
+            ready
+          );
+          if (!ok) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: {
+                message:
+                  'Cannot set ready (you must be seated, or game already started)',
+              },
+            });
+          }
+          break;
+        }
+
+        case 'claim_seat': {
+          const seatIndex = msg.payload.seatIndex;
+          if (
+            typeof seatIndex !== 'number' ||
+            !Number.isInteger(seatIndex)
+          ) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: 'claim_seat requires integer seatIndex' },
+            });
+            return;
+          }
+          const ok = this.manager.claimSeat(
+            lobbyId,
+            currentPlayer.id,
+            seatIndex
+          );
+          if (!ok) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: {
+                message:
+                  'Cannot claim that seat (taken, invalid index, or game already started)',
+              },
+            });
+          }
+          break;
+        }
+
+        case 'start_game': {
+          const err = this.manager.startGame(lobbyId, currentPlayer.id);
+          if (err) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: err },
+            });
+          }
+          break;
+        }
+
+        case 'set_seats': {
+          const count = msg.payload.count;
+          if (typeof count !== 'number' || !Number.isInteger(count)) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: 'set_seats requires integer count' },
+            });
+            return;
+          }
+          const err = this.manager.setSeats(
+            lobbyId,
+            currentPlayer.id,
+            count
+          );
+          if (err) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: err },
+            });
+          }
+          break;
+        }
+
+        case 'move': {
+          const article = msg.payload.article as string | undefined;
+          if (!article) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: "Move requires an 'article' field" },
+            });
+            return;
+          }
+          const moveUrl = msg.payload.url as string | undefined;
+          const move = this.manager.recordMove(
+            lobbyId,
+            currentPlayer.id,
+            article,
+            moveUrl
+          );
+          if (!move) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: {
+                message:
+                  'Cannot record move — game may not be in progress',
+              },
+            });
+          }
+          break;
+        }
+
+        default:
+          this.manager.sendTo(currentPlayer, {
+            type: 'error',
+            payload: { message: `Unknown message type: ${msg.type}` },
+          });
+      }
+    });
+
+    server.addEventListener('close', () => {
+      this.manager.removePlayer(lobbyId, playerId);
+    });
+
+    server.addEventListener('error', () => {
+      this.manager.removePlayer(lobbyId, playerId);
+    });
 
     this.manager.sendTo(player, {
       type: 'lobby_state',
