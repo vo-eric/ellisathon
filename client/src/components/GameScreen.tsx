@@ -22,25 +22,22 @@ interface Props {
 }
 
 function useGameTimer(running: boolean) {
-  const [elapsed, setElapsed] = useState(0);
+  const [seconds, setSeconds] = useState(0);
   const startRef = useRef<number | null>(null);
-  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!running) return;
     startRef.current = Date.now();
-    const tick = () => {
-      setElapsed(Date.now() - (startRef.current ?? Date.now()));
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
+    const id = setInterval(() => {
+      setSeconds(
+        Math.floor((Date.now() - (startRef.current ?? Date.now())) / 1000)
+      );
+    }, 1000);
+    return () => clearInterval(id);
   }, [running]);
 
-  const mm = String(Math.floor(elapsed / 60000)).padStart(2, '0');
-  const ss = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, '0');
+  const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const ss = String(seconds % 60).padStart(2, '0');
   return `${mm}:${ss}`;
 }
 
@@ -70,7 +67,6 @@ export function GameScreen({
     };
   }, [iframeSrc, onWikiFrameLoad, wikiRef]);
 
-  // My path to show in the right panel
   const myPlayer = players.find((p) => p.id === myPlayerId);
   const myMoves = myPlayer?.moves ?? [];
 

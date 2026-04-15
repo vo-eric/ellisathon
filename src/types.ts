@@ -37,6 +37,7 @@ export type Article = {
 export interface Lobby {
   id: string;
   status: LobbyStatus;
+  hostId: string;
   players: Player[];
   /**
    * Seat slots: length === maxPlayers.
@@ -56,7 +57,12 @@ export interface Lobby {
 
 // --- WebSocket message protocol ---
 
-export type ClientMessageType = 'move' | 'claim_seat' | 'set_ready';
+export type ClientMessageType =
+  | 'move'
+  | 'claim_seat'
+  | 'set_ready'
+  | 'start_game'
+  | 'set_seats';
 
 export type ServerMessageType =
   | 'lobby_state'
@@ -83,6 +89,7 @@ export interface ServerMessage {
 export interface LobbySnapshot {
   id: string;
   status: LobbyStatus;
+  hostId: string;
   players: { id: string; name: string }[];
   /** Seat index → playerId or null (same length as maxPlayers) */
   seats: (string | null)[];

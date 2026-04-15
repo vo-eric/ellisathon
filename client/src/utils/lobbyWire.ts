@@ -47,6 +47,7 @@ export function normalizeLobbySnapshot(raw: unknown): LobbySnapshot {
   return {
     id: String(l.id ?? ''),
     status: (l.status as LobbySnapshot['status']) ?? 'waiting',
+    hostId: String(l.hostId ?? ''),
     players,
     seats,
     seatReady,

@@ -8,8 +8,10 @@ import {
   ServerMessage,
 } from './types';
 
-const MAX_PLAYERS = 1;
-const COUNTDOWN_SECONDS = 1;
+const DEFAULT_SEATS = 2;
+const MIN_SEATS = 1;
+const MAX_SEATS = 8;
+const COUNTDOWN_SECONDS = 5;
 
 function articlesMatch(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase();
@@ -33,20 +35,25 @@ export class LobbyManager {
   private moveChains: Map<string, MoveChain> = new Map();
   private countdownTokens: Map<string, CountdownToken> = new Map();
 
-  createLobby(startArticle: Article, targetArticle: Article): Lobby {
+  createLobby(
+    startArticle: Article,
+    targetArticle: Article,
+    hostId: string
+  ): Lobby {
     const lobby: Lobby = {
       id: crypto.randomUUID(),
       status: 'waiting',
+      hostId,
       players: [],
-      seats: Array.from({ length: MAX_PLAYERS }, () => null),
-      seatReady: Array.from({ length: MAX_PLAYERS }, () => false),
+      seats: Array.from({ length: DEFAULT_SEATS }, () => null),
+      seatReady: Array.from({ length: DEFAULT_SEATS }, () => false),
       createdAt: Date.now(),
       startedAt: null,
       finishedAt: null,
       startArticle,
       targetArticle,
       winnerId: null,
-      maxPlayers: MAX_PLAYERS,
+      maxPlayers: DEFAULT_SEATS,
     };
     this.lobbies.set(lobby.id, lobby);
     this.moveChains.set(lobby.id, { head: null, tail: null });
@@ -70,6 +77,7 @@ export class LobbyManager {
     return {
       id: lobby.id,
       status: lobby.status,
+      hostId: lobby.hostId,
       players: lobby.players.map((p) => ({ id: p.id, name: p.name })),
       seats: [...lobby.seats],
       seatReady: [...lobby.seatReady],
@@ -87,7 +95,7 @@ export class LobbyManager {
 
   listJoinableLobbies(): LobbySnapshot[] {
     return Array.from(this.lobbies.values())
-      .filter((l) => l.status === 'waiting' && l.players.length < l.maxPlayers)
+      .filter((l) => l.status === 'waiting')
       .map((l) => this.snapshot(l));
   }
 
@@ -100,7 +108,6 @@ export class LobbyManager {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return null;
     if (lobby.status !== 'waiting') return null;
-    if (lobby.players.length >= lobby.maxPlayers) return null;
 
     const player: Player = {
       id: playerId,
@@ -167,7 +174,6 @@ export class LobbyManager {
     lobby.seatReady[seatIndex] = false;
 
     this.broadcastLobbySync(lobby);
-    this.tryBeginCountdown(lobbyId);
     return true;
   }
 
@@ -185,22 +191,19 @@ export class LobbyManager {
     lobby.seatReady[seatIndex] = ready;
 
     this.broadcastLobbySync(lobby);
-    if (ready) {
-      this.tryBeginCountdown(lobbyId);
-    }
     return true;
   }
 
-  private allSeatedPlayersReady(lobby: Lobby): boolean {
-    if (lobby.players.length !== lobby.maxPlayers) return false;
-    if (!lobby.seats.every((s) => s !== null)) return false;
+  allSeatedPlayersReady(lobby: Lobby): boolean {
+    let seatedCount = 0;
     for (let i = 0; i < lobby.seats.length; i++) {
-      if (lobby.seats[i] === null) return false;
-      if (!lobby.seatReady[i]) return false;
-      const pid = lobby.seats[i];
-      if (!lobby.players.some((p) => p.id === pid)) return false;
+      if (lobby.seats[i] !== null) {
+        seatedCount++;
+        if (!lobby.seatReady[i]) return false;
+        if (!lobby.players.some((p) => p.id === lobby.seats[i])) return false;
+      }
     }
-    return true;
+    return seatedCount > 0;
   }
 
   private tryBeginCountdown(lobbyId: string): void {
@@ -245,7 +248,7 @@ export class LobbyManager {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return false;
     if (lobby.status !== 'waiting') return false;
-    if (lobby.players.length < MAX_PLAYERS) return false;
+    if (!this.allSeatedPlayersReady(lobby)) return false;
 
     const chain = this.getChain(lobbyId);
     if (!chain) return false;
@@ -279,6 +282,53 @@ export class LobbyManager {
     }
 
     return true;
+  }
+
+  /** Host-only: begin the countdown → game start. Returns error string on failure. */
+  startGame(lobbyId: string, playerId: string): string | null {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return 'Lobby not found';
+    if (lobby.hostId !== playerId) return 'Only the host can start the game';
+    if (lobby.status !== 'waiting') return 'Game already started';
+    if (!this.allSeatedPlayersReady(lobby))
+      return 'Not all seated players are ready';
+    if (this.countdownTokens.has(lobbyId))
+      return 'Countdown already in progress';
+
+    this.tryBeginCountdown(lobbyId);
+    return null;
+  }
+
+  /** Host-only: change the number of seats. Returns error string on failure. */
+  setSeats(lobbyId: string, playerId: string, count: number): string | null {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return 'Lobby not found';
+    if (lobby.hostId !== playerId) return 'Only the host can change seat count';
+    if (lobby.status !== 'waiting')
+      return 'Cannot change seats after game started';
+    if (count < MIN_SEATS || count > MAX_SEATS)
+      return `Seat count must be between ${MIN_SEATS} and ${MAX_SEATS}`;
+
+    const occupiedCount = lobby.seats.filter((s) => s !== null).length;
+    if (count < occupiedCount) {
+      return `Cannot reduce seats below the number of occupied seats (${occupiedCount})`;
+    }
+
+    this.cancelCountdown(lobbyId);
+
+    if (count > lobby.seats.length) {
+      while (lobby.seats.length < count) {
+        lobby.seats.push(null);
+        lobby.seatReady.push(false);
+      }
+    } else if (count < lobby.seats.length) {
+      lobby.seats.length = count;
+      lobby.seatReady.length = count;
+    }
+    lobby.maxPlayers = count;
+
+    this.broadcastLobbySync(lobby);
+    return null;
   }
 
   recordMove(
