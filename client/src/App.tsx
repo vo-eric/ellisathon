@@ -21,11 +21,15 @@ export default function App() {
     creatingLobby,
     waiting,
     match,
+    lobbyError,
     joinLobby,
     createLobby,
     backToLobbies,
     claimSeat,
     setReady,
+    startGame,
+    setSeats,
+    dismissLobbyError,
     sendMove,
     setIframeSrc,
   } = useLobbySocket({
@@ -127,8 +131,13 @@ export default function App() {
                 lobby={waiting.lobby}
                 myPlayerId={myPlayerId}
                 statusLine={waiting.info}
+                isHost={myPlayerId === waiting.lobby.hostId}
+                errorMessage={lobbyError}
                 onClaimSeat={claimSeat}
                 onSetReady={setReady}
+                onStartGame={startGame}
+                onSetSeats={setSeats}
+                onDismissError={dismissLobbyError}
               />
             ) : (
               <>

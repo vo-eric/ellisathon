@@ -28,6 +28,7 @@ export interface Article {
 export interface LobbySnapshot {
   id: string;
   status: LobbyStatus;
+  hostId: string;
   players: Player[];
   seats: (string | null)[];
   seatReady: boolean[];

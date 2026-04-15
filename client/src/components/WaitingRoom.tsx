@@ -1,13 +1,20 @@
+import { useEffect } from 'react';
 import type { LobbySnapshot } from '../types';
 import { coerceArticle } from '../utils/lobbyWire';
 import { TargetArticleChip } from './TargetArticleChip';
+import { Minus, Plus } from 'lucide-react';
 
 type Props = {
   lobby: LobbySnapshot;
   myPlayerId: string | null;
   statusLine: string;
+  isHost: boolean;
+  errorMessage: string | null;
   onClaimSeat: (seatIndex: number) => void;
   onSetReady: (ready: boolean) => void;
+  onStartGame: () => void;
+  onSetSeats: (count: number) => void;
+  onDismissError: () => void;
 };
 
 function playerName(
@@ -22,18 +29,47 @@ export function WaitingRoom({
   lobby,
   myPlayerId,
   statusLine,
+  isHost,
+  errorMessage,
   onClaimSeat,
   onSetReady,
+  onStartGame,
+  onSetSeats,
+  onDismissError,
 }: Props) {
   const seats = lobby.seats ?? [];
   const seatReady = lobby.seatReady ?? [];
   const targetTitle = coerceArticle(lobby.targetArticle).title;
 
-  const allSeatsFilled = seats.every((s) => s !== null);
+  const occupiedSeats = seats.filter((s) => s !== null);
+  const allSeatedReady =
+    occupiedSeats.length > 0 &&
+    seats.every((s, i) => s === null || seatReady[i]);
+
+  useEffect(() => {
+    if (!errorMessage) return;
+    const timer = setTimeout(onDismissError, 4000);
+    return () => clearTimeout(timer);
+  }, [errorMessage, onDismissError]);
+
   return (
     <div className='waiting-room'>
       <h2 className='waiting-room-title'>Lobby</h2>
       <p className='waiting-room-status'>{statusLine}</p>
+
+      {errorMessage && (
+        <div className='waiting-room-toast' role='alert'>
+          <span>{errorMessage}</span>
+          <button
+            type='button'
+            className='waiting-room-toast-dismiss'
+            onClick={onDismissError}
+            aria-label='Dismiss'
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       <div className='waiting-room-target-only'>
         <p className='waiting-room-target-label'>Goal article</p>
@@ -41,8 +77,8 @@ export function WaitingRoom({
           <TargetArticleChip key={lobby.id} title={targetTitle} />
         </p>
         <p className='waiting-room-target-note'>
-          The starting article stays hidden until everyone is seated, ready, and
-          the countdown finishes.
+          The starting article stays hidden until all seated players are ready
+          and the host starts the game.
         </p>
       </div>
 
@@ -58,6 +94,9 @@ export function WaitingRoom({
                 {p.id === myPlayerId && (
                   <span className='waiting-room-you-badge'>you</span>
                 )}
+                {p.id === lobby.hostId && (
+                  <span className='waiting-room-host-badge'>host</span>
+                )}
               </li>
             ))}
           </ul>
@@ -65,11 +104,36 @@ export function WaitingRoom({
       </section>
 
       <section className='waiting-room-section'>
-        <h3 className='waiting-room-section-title'>Seats</h3>
+        <div className='waiting-room-section-header'>
+          <h3 className='waiting-room-section-title'>
+            Seats ({occupiedSeats.length}/{seats.length})
+          </h3>
+          {isHost && (
+            <div className='waiting-room-seat-controls'>
+              <button
+                type='button'
+                className='waiting-room-seat-ctrl-btn'
+                onClick={() => onSetSeats(seats.length - 1)}
+                disabled={seats.length <= 1}
+                aria-label='Remove a seat'
+              >
+                <Minus size={14} />
+              </button>
+              <button
+                type='button'
+                className='waiting-room-seat-ctrl-btn'
+                onClick={() => onSetSeats(seats.length + 1)}
+                disabled={seats.length >= 8}
+                aria-label='Add a seat'
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          )}
+        </div>
         <p className='waiting-room-muted waiting-room-seat-hint'>
-          Claim a seat, then press <strong>Ready up</strong>. When every seat is
-          filled and both players are ready, a 5-second countdown runs; then the
-          start page is revealed and the race begins.
+          Claim a seat, then press <strong>Ready up</strong>. Once all seated
+          players are ready, the host can start the game.
         </p>
         <div className='waiting-room-seats'>
           {seats.map((occupantId, seatIndex) => {
@@ -164,10 +228,20 @@ export function WaitingRoom({
           })}
         </div>
 
-        {allSeatsFilled && (
+        {isHost && allSeatedReady && (
+          <button
+            type='button'
+            className='btn-primary waiting-room-start-btn'
+            onClick={onStartGame}
+          >
+            Start Game
+          </button>
+        )}
+
+        {!isHost && allSeatedReady && (
           <p className='waiting-room-muted waiting-room-all-seated-hint'>
-            All seats filled — both players must tap <strong>Ready up</strong>{' '}
-            to begin the countdown.
+            All seated players are ready — waiting for the host to start the
+            game.
           </p>
         )}
       </section>

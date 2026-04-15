@@ -11,10 +11,7 @@ interface PlayerMeta {
 export class LobbyManagerDO implements DurableObject {
   private manager = new LobbyManager();
 
-  constructor(
-    private ctx: DurableObjectState,
-    private env: unknown
-  ) {}
+  constructor(private ctx: DurableObjectState, private env: unknown) {}
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -40,7 +37,11 @@ export class LobbyManagerDO implements DurableObject {
 
     let msg: ClientMessage;
     try {
-      msg = JSON.parse(typeof message === 'string' ? message : new TextDecoder().decode(message));
+      msg = JSON.parse(
+        typeof message === 'string'
+          ? message
+          : new TextDecoder().decode(message)
+      );
     } catch {
       this.manager.sendTo(player, {
         type: 'error',
@@ -63,7 +64,10 @@ export class LobbyManagerDO implements DurableObject {
         if (!ok) {
           this.manager.sendTo(player, {
             type: 'error',
-            payload: { message: 'Cannot set ready (you must be seated, or game already started)' },
+            payload: {
+              message:
+                'Cannot set ready (you must be seated, or game already started)',
+            },
           });
         }
         break;
@@ -82,7 +86,40 @@ export class LobbyManagerDO implements DurableObject {
         if (!ok) {
           this.manager.sendTo(player, {
             type: 'error',
-            payload: { message: 'Cannot claim that seat (taken, invalid index, or game already started)' },
+            payload: {
+              message:
+                'Cannot claim that seat (taken, invalid index, or game already started)',
+            },
+          });
+        }
+        break;
+      }
+
+      case 'start_game': {
+        const err = this.manager.startGame(meta.lobbyId, player.id);
+        if (err) {
+          this.manager.sendTo(player, {
+            type: 'error',
+            payload: { message: err },
+          });
+        }
+        break;
+      }
+
+      case 'set_seats': {
+        const count = msg.payload.count;
+        if (typeof count !== 'number' || !Number.isInteger(count)) {
+          this.manager.sendTo(player, {
+            type: 'error',
+            payload: { message: 'set_seats requires integer count' },
+          });
+          return;
+        }
+        const err = this.manager.setSeats(meta.lobbyId, player.id, count);
+        if (err) {
+          this.manager.sendTo(player, {
+            type: 'error',
+            payload: { message: err },
           });
         }
         break;
@@ -98,11 +135,18 @@ export class LobbyManagerDO implements DurableObject {
           return;
         }
         const moveUrl = msg.payload.url as string | undefined;
-        const move = this.manager.recordMove(meta.lobbyId, player.id, article, moveUrl);
+        const move = this.manager.recordMove(
+          meta.lobbyId,
+          player.id,
+          article,
+          moveUrl
+        );
         if (!move) {
           this.manager.sendTo(player, {
             type: 'error',
-            payload: { message: 'Cannot record move — game may not be in progress' },
+            payload: {
+              message: 'Cannot record move — game may not be in progress',
+            },
           });
         }
         break;
@@ -136,7 +180,10 @@ export class LobbyManagerDO implements DurableObject {
     const playerId = url.searchParams.get('playerId');
 
     if (!lobbyId || !playerName || !playerId) {
-      return new Response('Missing lobbyId, playerId, and/or playerName query params', { status: 400 });
+      return new Response(
+        'Missing lobbyId, playerId, and/or playerName query params',
+        { status: 400 }
+      );
     }
 
     const lobby = this.manager.getLobby(lobbyId);
@@ -148,11 +195,20 @@ export class LobbyManagerDO implements DurableObject {
     const [client, server] = Object.values(pair);
 
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ lobbyId, playerId, playerName } satisfies PlayerMeta);
+    server.serializeAttachment({
+      lobbyId,
+      playerId,
+      playerName,
+    } satisfies PlayerMeta);
 
-    const player = this.manager.addPlayer(lobbyId, playerName, playerId, server);
+    const player = this.manager.addPlayer(
+      lobbyId,
+      playerName,
+      playerId,
+      server
+    );
     if (!player) {
-      server.close(4002, 'Could not join lobby (full or already started)');
+      server.close(4002, 'Could not join lobby (game already started)');
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -175,12 +231,20 @@ export class LobbyManagerDO implements DurableObject {
 
     if (pathname === '/api/lobbies' && method === 'POST') {
       try {
+        const body = (await request.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
+        const hostId = typeof body.hostId === 'string' ? body.hostId : '';
         const { start, target } = await getRandomArticles();
-        const lobby = this.manager.createLobby(start, target);
+        const lobby = this.manager.createLobby(start, target, hostId);
         return Response.json(this.manager.snapshot(lobby), { status: 201 });
       } catch (err) {
         console.error('Wikipedia fetch error:', err);
-        return Response.json({ error: 'Failed to fetch Wikipedia articles' }, { status: 502 });
+        return Response.json(
+          { error: 'Failed to fetch Wikipedia articles' },
+          { status: 502 }
+        );
       }
     }
 
@@ -206,7 +270,10 @@ export class LobbyManagerDO implements DurableObject {
         const articles = await getRandomArticles();
         return Response.json(articles);
       } catch {
-        return Response.json({ error: 'Failed to fetch Wikipedia articles' }, { status: 502 });
+        return Response.json(
+          { error: 'Failed to fetch Wikipedia articles' },
+          { status: 502 }
+        );
       }
     }
 
