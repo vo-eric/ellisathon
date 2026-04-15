@@ -44,7 +44,9 @@ export function LobbyListScreen({
                     <strong>{coerceArticle(lobby.targetArticle).title}</strong>
                   </div>
                   <div className='lobby-players'>
-                    {lobby.players.length}/{lobby.maxPlayers} players
+                    {lobby.players.length} player
+                    {lobby.players.length !== 1 ? 's' : ''} &middot;{' '}
+                    {lobby.maxPlayers} seat{lobby.maxPlayers !== 1 ? 's' : ''}
                   </div>
                 </div>
                 <button

@@ -66,6 +66,7 @@ export function useLobbySocket({
   const [creatingLobby, setCreatingLobby] = useState(false);
   const [waiting, setWaiting] = useState<WaitingState | null>(null);
   const [match, setMatch] = useState<Match>({ status: 'idle' });
+  const [lobbyError, setLobbyError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -124,7 +125,7 @@ export function useLobbySocket({
         break;
       case 'player_left':
         setWaiting((prev) =>
-          prev ? { ...prev, info: 'Opponent disconnected.' } : prev
+          prev ? { ...prev, info: 'A player disconnected.' } : prev
         );
         break;
       case 'game_start': {
@@ -195,11 +196,13 @@ export function useLobbySocket({
       }
       case 'error':
         console.error('Server error:', msg.payload.message);
+        setLobbyError(msg.payload.message);
         break;
     }
   };
 
   const joinLobby = (lobbyId: string) => {
+    console.log('about to join lobby');
     const prev = wsRef.current;
     if (prev) {
       prev.close();
@@ -209,7 +212,10 @@ export function useLobbySocket({
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
+    console.log('wd url', ws);
+
     ws.addEventListener('open', () => {
+      console.log('here we are');
       setWaiting({
         lobby: null,
         info: 'Connected. Pick a seat when the lobby loads.',
@@ -238,9 +244,14 @@ export function useLobbySocket({
   const createLobby = async () => {
     setCreatingLobby(true);
     try {
-      const res = await fetch(apiUrl('/api/lobbies'), { method: 'POST' });
+      const res = await fetch(apiUrl('/api/lobbies'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostId: myPlayerId }),
+      });
       if (!res.ok) throw new Error('Failed');
       const lobby = (await res.json()) as LobbySnapshot;
+      console.log('lobby', lobby);
       joinLobby(lobby.id);
     } catch {
       window.alert('Could not create lobby. Try again.');
@@ -271,6 +282,22 @@ export function useLobbySocket({
     ws.send(JSON.stringify({ type: 'set_ready', payload: { ready } }));
   }, []);
 
+  const startGame = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'start_game', payload: {} }));
+  }, []);
+
+  const setSeats = useCallback((count: number) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'set_seats', payload: { count } }));
+  }, []);
+
+  const dismissLobbyError = useCallback(() => {
+    setLobbyError(null);
+  }, []);
+
   const sendMove = useCallback((article: string, url: string) => {
     const ws = wsRef.current;
     if (ws?.readyState !== WebSocket.OPEN) return;
@@ -283,6 +310,8 @@ export function useLobbySocket({
     );
   }, []);
 
+  console.log('match', match);
+
   return {
     screen,
     setScreen,
@@ -290,11 +319,15 @@ export function useLobbySocket({
     creatingLobby,
     waiting,
     match,
+    lobbyError,
     joinLobby,
     createLobby,
     backToLobbies,
     claimSeat,
     setReady,
+    startGame,
+    setSeats,
+    dismissLobbyError,
     sendMove,
     setIframeSrc,
   };
