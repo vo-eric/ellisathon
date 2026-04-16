@@ -131,9 +131,9 @@ export default function App() {
               <WaitingRoom
                 lobby={waiting.lobby}
                 myPlayerId={myPlayerId}
-                statusLine={waiting.info}
                 isHost={myPlayerId === waiting.lobby.hostId}
                 errorMessage={lobbyError}
+                onLeaveLobby={backToLobbies}
                 onClaimSeat={claimSeat}
                 onSetReady={setReady}
                 onStartGame={startGame}

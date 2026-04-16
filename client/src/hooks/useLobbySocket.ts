@@ -116,18 +116,6 @@ export function useLobbySocket({
           prev ? { ...prev, countdownSeconds: msg.payload.secondsLeft } : prev
         );
         break;
-      case 'player_joined':
-        setWaiting((prev) =>
-          prev
-            ? { ...prev, info: `${msg.payload.name} joined the lobby.` }
-            : prev
-        );
-        break;
-      case 'player_left':
-        setWaiting((prev) =>
-          prev ? { ...prev, info: 'A player disconnected.' } : prev
-        );
-        break;
       case 'game_start': {
         const lobby = normalizeLobbySnapshot(msg.payload);
         const startArt = coerceArticle(lobby.startArticle);
