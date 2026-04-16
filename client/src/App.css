@@ -318,7 +318,7 @@ button,
   transition: background 0.2s;
 }
 
-button:hover:not(:disabled),
+button:hover:not(:disabled):not(.waiting-room-leave-btn),
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
@@ -490,23 +490,33 @@ button:disabled {
   gap: 20px;
 }
 
+.waiting-room-top {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
+
+.waiting-room-leave-btn {
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+
+  
+}
+
 .waiting-room-title {
   font-size: 1.35rem;
   font-weight: 700;
   text-align: center;
-  margin: 0;
+  margin: 0 0 16px;
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-}
-
-.waiting-room-status {
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-  line-height: 1.45;
-  margin: 0;
 }
 
 .waiting-room-target-only {

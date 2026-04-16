@@ -7,9 +7,9 @@ import { Minus, Plus, X } from 'lucide-react';
 type Props = {
   lobby: LobbySnapshot;
   myPlayerId: string | null;
-  statusLine: string;
   isHost: boolean;
   errorMessage: string | null;
+  onLeaveLobby: () => void;
   onClaimSeat: (seatIndex: number) => void;
   onSetReady: (ready: boolean) => void;
   onStartGame: () => void;
@@ -29,9 +29,9 @@ function playerName(
 export function WaitingRoom({
   lobby,
   myPlayerId,
-  statusLine,
   isHost,
   errorMessage,
+  onLeaveLobby,
   onClaimSeat,
   onSetReady,
   onStartGame,
@@ -56,8 +56,16 @@ export function WaitingRoom({
 
   return (
     <div className='waiting-room'>
+      <div className='waiting-room-top'>
+        <button
+          type='button'
+          className='waiting-room-leave-btn'
+          onClick={onLeaveLobby}
+        >
+          &#8249; Leave lobby
+        </button>
+      </div>
       <h2 className='waiting-room-title'>Lobby</h2>
-      <p className='waiting-room-status'>{statusLine}</p>
 
       {errorMessage && (
         <div className='waiting-room-toast' role='alert'>
