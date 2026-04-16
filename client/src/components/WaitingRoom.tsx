@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import type { LobbySnapshot } from '../types';
 import { coerceArticle } from '../utils/lobbyWire';
 import { TargetArticleChip } from './TargetArticleChip';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, X } from 'lucide-react';
 
 type Props = {
   lobby: LobbySnapshot;
@@ -14,6 +14,7 @@ type Props = {
   onSetReady: (ready: boolean) => void;
   onStartGame: () => void;
   onSetSeats: (count: number) => void;
+  onKickSeat: (seatIndex: number) => void;
   onDismissError: () => void;
 };
 
@@ -35,6 +36,7 @@ export function WaitingRoom({
   onSetReady,
   onStartGame,
   onSetSeats,
+  onKickSeat,
   onDismissError,
 }: Props) {
   const seats = lobby.seats ?? [];
@@ -195,6 +197,17 @@ export function WaitingRoom({
                     <span className='waiting-room-seat-occupant-name'>
                       {name}
                     </span>
+                    {isHost && occupantId !== myPlayerId && (
+                      <button
+                        type='button'
+                        className='waiting-room-kick-btn'
+                        onClick={() => onKickSeat(seatIndex)}
+                        aria-label={`Kick ${name} from seat`}
+                        title='Kick from seat'
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
                 )}
 

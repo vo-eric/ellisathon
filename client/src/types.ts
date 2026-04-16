@@ -34,7 +34,7 @@ export interface LobbySnapshot {
   seatReady: boolean[];
   moveChain: MoveListNodeSnapshot | null;
   /** null while waiting (start page hidden until countdown ends). */
-  startArticle: Article;
+  startArticle: Article | null;
   targetArticle: Article;
   winnerId: string | null;
   maxPlayers: number;

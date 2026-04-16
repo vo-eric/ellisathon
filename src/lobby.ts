@@ -151,6 +151,10 @@ export class LobbyManager {
       this.lobbies.delete(lobbyId);
       this.moveChains.delete(lobbyId);
     } else {
+      if (lobby.hostId === playerId) {
+        const idx = Math.floor(Math.random() * lobby.players.length);
+        lobby.hostId = lobby.players[idx].id;
+      }
       this.broadcastLobbySync(lobby);
     }
   }
@@ -296,6 +300,24 @@ export class LobbyManager {
       return 'Countdown already in progress';
 
     this.tryBeginCountdown(lobbyId);
+    return null;
+  }
+
+  /** Host-only: kick a player out of their seat (they remain in the lobby). */
+  kickSeat(lobbyId: string, hostId: string, seatIndex: number): string | null {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return 'Lobby not found';
+    if (lobby.hostId !== hostId) return 'Only the host can kick players';
+    if (lobby.status !== 'waiting') return 'Cannot kick after game started';
+    if (seatIndex < 0 || seatIndex >= lobby.seats.length) return 'Invalid seat index';
+    if (lobby.seats[seatIndex] === null) return 'Seat is already empty';
+
+    this.cancelCountdown(lobbyId);
+
+    lobby.seats[seatIndex] = null;
+    lobby.seatReady[seatIndex] = false;
+
+    this.broadcastLobbySync(lobby);
     return null;
   }
 

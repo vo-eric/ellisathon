@@ -29,6 +29,7 @@ export default function App() {
     setReady,
     startGame,
     setSeats,
+    kickSeat,
     dismissLobbyError,
     sendMove,
     setIframeSrc,
@@ -137,6 +138,7 @@ export default function App() {
                 onSetReady={setReady}
                 onStartGame={startGame}
                 onSetSeats={setSeats}
+                onKickSeat={kickSeat}
                 onDismissError={dismissLobbyError}
               />
             ) : (

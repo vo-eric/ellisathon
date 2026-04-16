@@ -166,6 +166,32 @@ export class LobbyManagerDO implements DurableObject {
           break;
         }
 
+        case 'kick_seat': {
+          const seatIndex = msg.payload.seatIndex;
+          if (
+            typeof seatIndex !== 'number' ||
+            !Number.isInteger(seatIndex)
+          ) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: 'kick_seat requires integer seatIndex' },
+            });
+            return;
+          }
+          const err = this.manager.kickSeat(
+            lobbyId,
+            currentPlayer.id,
+            seatIndex
+          );
+          if (err) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: err },
+            });
+          }
+          break;
+        }
+
         case 'move': {
           const article = msg.payload.article as string | undefined;
           if (!article) {
