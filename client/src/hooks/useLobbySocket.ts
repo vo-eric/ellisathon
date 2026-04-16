@@ -289,6 +289,12 @@ export function useLobbySocket({
     ws.send(JSON.stringify({ type: 'set_seats', payload: { count } }));
   }, []);
 
+  const kickSeat = useCallback((seatIndex: number) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'kick_seat', payload: { seatIndex } }));
+  }, []);
+
   const dismissLobbyError = useCallback(() => {
     setLobbyError(null);
   }, []);
@@ -320,6 +326,7 @@ export function useLobbySocket({
     setReady,
     startGame,
     setSeats,
+    kickSeat,
     dismissLobbyError,
     sendMove,
     setIframeSrc,
