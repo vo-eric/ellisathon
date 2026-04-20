@@ -19,6 +19,8 @@ interface Props {
   iframeSrc: string | null;
   onWikiFrameLoad: () => void;
   wikiRef: React.RefObject<HTMLIFrameElement | null>;
+  /** When false, timer pauses (e.g., during pre-game countdown). */
+  timerRunning?: boolean;
 }
 
 function useGameTimer(running: boolean) {
@@ -49,8 +51,9 @@ export function GameScreen({
   iframeSrc,
   onWikiFrameLoad,
   wikiRef,
+  timerRunning = true,
 }: Props) {
-  const timer = useGameTimer(true);
+  const timer = useGameTimer(timerRunning);
   const myColor = players.find((p) => p.id === myPlayerId)?.color ?? '#111';
 
   useEffect(() => {
