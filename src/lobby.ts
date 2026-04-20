@@ -232,7 +232,10 @@ export class LobbyManager {
       }
       this.broadcast(lobby, {
         type: 'countdown_tick',
-        payload: { secondsLeft: s },
+        payload: {
+          secondsLeft: s,
+          startArticle: lobby.startArticle,
+        },
       });
       s--;
       setTimeout(step, 1000);
@@ -309,7 +312,8 @@ export class LobbyManager {
     if (!lobby) return 'Lobby not found';
     if (lobby.hostId !== hostId) return 'Only the host can kick players';
     if (lobby.status !== 'waiting') return 'Cannot kick after game started';
-    if (seatIndex < 0 || seatIndex >= lobby.seats.length) return 'Invalid seat index';
+    if (seatIndex < 0 || seatIndex >= lobby.seats.length)
+      return 'Invalid seat index';
     if (lobby.seats[seatIndex] === null) return 'Seat is already empty';
 
     this.cancelCountdown(lobbyId);

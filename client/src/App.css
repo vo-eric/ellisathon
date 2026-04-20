@@ -458,7 +458,6 @@ button:disabled {
 .countdown-overlay-sub {
   font-size: 0.88rem;
   color: var(--text-muted);
-  max-width: 280px;
   margin: 0 auto;
   line-height: 1.45;
 }
@@ -504,8 +503,6 @@ button:disabled {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 4px;
-
-  
 }
 
 .waiting-room-title {

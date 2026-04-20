@@ -45,7 +45,10 @@ export type ServerMessage =
   | { type: 'lobby_sync'; payload: LobbySnapshot }
   | { type: 'player_joined'; payload: { playerId: string; name: string } }
   | { type: 'player_left'; payload: { playerId: string } }
-  | { type: 'countdown_tick'; payload: { secondsLeft: number } }
+  | {
+      type: 'countdown_tick';
+      payload: { secondsLeft: number; startArticle: Article };
+    }
   | { type: 'game_start'; payload: LobbySnapshot }
   | {
       type: 'move_made';

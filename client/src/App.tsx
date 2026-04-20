@@ -41,11 +41,20 @@ export default function App() {
   });
 
   const isPlaying = match.status === 'playing';
+  const isCountdown = match.status === 'countdown';
+  const inGameView = isPlaying || isCountdown;
+
+  const activeStartTitle =
+    isPlaying || isCountdown ? match.startTitle : '';
+  const activeTargetTitle =
+    isPlaying || isCountdown ? match.targetTitle : '';
+  const activeIframeSrc =
+    isPlaying || isCountdown ? match.iframeSrc : null;
 
   const { wikiRef, onWikiFrameLoad, resetRefs } = useWikiNavigation({
     isPlaying,
-    startTitle: isPlaying ? match.startTitle : '',
-    targetTitle: isPlaying ? match.targetTitle : '',
+    startTitle: activeStartTitle,
+    targetTitle: activeTargetTitle,
     sendMove,
     onIframeSrcChange: setIframeSrc,
   });
@@ -113,19 +122,6 @@ export default function App() {
             screen === 'waiting' ? 'active' : ''
           }`}
         >
-          {waiting?.countdownSeconds != null && (
-            <div className='countdown-overlay' role='status' aria-live='polite'>
-              <div className='countdown-overlay-inner'>
-                <p className='countdown-overlay-label'>Starting in</p>
-                <div className='countdown-overlay-number'>
-                  {waiting.countdownSeconds}
-                </div>
-                <p className='countdown-overlay-sub'>
-                  The start article will be revealed next
-                </p>
-              </div>
-            </div>
-          )}
           <div className='card waiting-room-card'>
             {waiting?.lobby ? (
               <WaitingRoom
@@ -151,33 +147,72 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── Game screen ── */}
-        {screen === 'game' && match.status === 'playing' && (
+        {/* ── Game screen (rendered for countdown & playing) ── */}
+        {screen === 'game' && inGameView && (
           <div className='screen active screen-game'>
             <GameScreen
               myPlayerId={myPlayerId}
-              players={match.seats
-                .map((playerId, seatIndex) => {
-                  if (!playerId) return null;
-                  const player = match.players.find((p) => p.id === playerId);
-                  if (!player) return null;
-                  const moves = match.playerMoves.get(playerId) ?? [];
-                  const finished = moves.some((m) => m.end);
-                  return {
-                    id: player.id,
-                    name: player.name,
-                    color: SEAT_COLORS[seatIndex] ?? '#ccc',
-                    moves,
-                    finished,
-                  };
-                })
-                .filter((p): p is NonNullable<typeof p> => p !== null)}
-              startArticle={match.startTitle}
-              targetArticle={match.targetTitle}
-              iframeSrc={match.iframeSrc}
+              players={
+                isPlaying
+                  ? match.seats
+                      .map((playerId, seatIndex) => {
+                        if (!playerId) return null;
+                        const player = match.players.find(
+                          (p) => p.id === playerId
+                        );
+                        if (!player) return null;
+                        const moves = match.playerMoves.get(playerId) ?? [];
+                        const finished = moves.some((m) => m.end);
+                        return {
+                          id: player.id,
+                          name: player.name,
+                          color: SEAT_COLORS[seatIndex] ?? '#ccc',
+                          moves,
+                          finished,
+                        };
+                      })
+                      .filter((p): p is NonNullable<typeof p> => p !== null)
+                  : (waiting?.lobby?.seats ?? [])
+                      .map((playerId, seatIndex) => {
+                        if (!playerId) return null;
+                        const player = waiting?.lobby?.players.find(
+                          (p) => p.id === playerId
+                        );
+                        if (!player) return null;
+                        return {
+                          id: player.id,
+                          name: player.name,
+                          color: SEAT_COLORS[seatIndex] ?? '#ccc',
+                          moves: [],
+                          finished: false,
+                        };
+                      })
+                      .filter((p): p is NonNullable<typeof p> => p !== null)
+              }
+              startArticle={activeStartTitle}
+              targetArticle={activeTargetTitle}
+              iframeSrc={activeIframeSrc}
               onWikiFrameLoad={onWikiFrameLoad}
               wikiRef={wikiRef}
+              timerRunning={isPlaying}
             />
+            {isCountdown && (
+              <div
+                className='countdown-overlay'
+                role='status'
+                aria-live='polite'
+              >
+                <div className='countdown-overlay-inner'>
+                  <p className='countdown-overlay-label'>Starting in</p>
+                  <div className='countdown-overlay-number'>
+                    {match.secondsLeft}
+                  </div>
+                  <p className='countdown-overlay-sub'>
+                    The start article will be revealed next
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

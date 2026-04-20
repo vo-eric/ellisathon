@@ -29,6 +29,13 @@ export interface WaitingState {
 export type Match =
   | { status: 'idle' }
   | {
+      status: 'countdown';
+      startTitle: string;
+      targetTitle: string;
+      iframeSrc: string;
+      secondsLeft: number;
+    }
+  | {
       status: 'playing';
       startTitle: string;
       targetTitle: string;
@@ -69,6 +76,7 @@ export function useLobbySocket({
   const [lobbyError, setLobbyError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const waitingLobbyRef = useRef<LobbySnapshot | null>(null);
 
   const refreshLobbies = useCallback(async () => {
     try {
@@ -95,6 +103,7 @@ export function useLobbySocket({
           onPlayerIdFromServer?.(pid);
         }
         const lobby = normalizeLobbySnapshot(msg.payload.lobby);
+        waitingLobbyRef.current = lobby;
         setWaiting((prev) =>
           prev
             ? { ...prev, lobby }
@@ -104,6 +113,7 @@ export function useLobbySocket({
       }
       case 'lobby_sync': {
         const lobby = normalizeLobbySnapshot(msg.payload);
+        waitingLobbyRef.current = lobby;
         setWaiting((prev) =>
           prev
             ? { ...prev, lobby, countdownSeconds: null }
@@ -111,11 +121,31 @@ export function useLobbySocket({
         );
         break;
       }
-      case 'countdown_tick':
+      case 'countdown_tick': {
+        const secondsLeft = msg.payload.secondsLeft;
+        const startArt = coerceArticle(msg.payload.startArticle);
         setWaiting((prev) =>
-          prev ? { ...prev, countdownSeconds: msg.payload.secondsLeft } : prev
+          prev ? { ...prev, countdownSeconds: secondsLeft } : prev
         );
+        const targetTitle = coerceArticle(
+          waitingLobbyRef.current?.targetArticle
+        ).title;
+        setMatch((prev) => {
+          if (prev.status === 'playing' || prev.status === 'finished') {
+            return prev;
+          }
+          return {
+            status: 'countdown',
+            startTitle: startArt.title,
+            targetTitle:
+              prev.status === 'countdown' ? prev.targetTitle : targetTitle,
+            iframeSrc: apiUrl('/wiki/' + encodeURIComponent(startArt.title)),
+            secondsLeft,
+          };
+        });
+        setScreen((prev) => (prev === 'waiting' ? 'game' : prev));
         break;
+      }
       case 'game_start': {
         const lobby = normalizeLobbySnapshot(msg.payload);
         const startArt = coerceArticle(lobby.startArticle);
@@ -246,6 +276,7 @@ export function useLobbySocket({
   const backToLobbies = () => {
     wsRef.current?.close();
     wsRef.current = null;
+    waitingLobbyRef.current = null;
     setMatch({ status: 'idle' });
     setWaiting(null);
     onResetNavigation();
