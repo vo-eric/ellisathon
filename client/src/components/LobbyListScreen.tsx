@@ -44,7 +44,14 @@ export function LobbyListScreen({
                     <strong>{coerceArticle(lobby.targetArticle).title}</strong>
                   </div>
                   <div className='lobby-players'>
-                    {lobby.players.length} player
+                    <span
+                      className={`lobby-mode-badge lobby-mode-badge--${
+                        lobby.mode === 'golf' ? 'golf' : 'race'
+                      }`}
+                    >
+                      {lobby.mode === 'golf' ? 'Golf' : 'Race'}
+                    </span>{' '}
+                    &middot; {lobby.players.length} player
                     {lobby.players.length !== 1 ? 's' : ''} &middot;{' '}
                     {lobby.maxPlayers} seat{lobby.maxPlayers !== 1 ? 's' : ''}
                   </div>

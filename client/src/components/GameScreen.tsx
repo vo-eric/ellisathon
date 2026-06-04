@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, Fragment } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Flag } from 'lucide-react';
 import type { PathMove } from '../hooks/useReplay';
+import type { GameMode } from '../types';
 import { wikiArticleHref } from '../utils/wikiUrl';
 
 interface PlayerInfo {
@@ -9,6 +10,7 @@ interface PlayerInfo {
   color: string;
   moves: PathMove[];
   finished: boolean;
+  forfeited: boolean;
 }
 
 interface Props {
@@ -21,6 +23,19 @@ interface Props {
   wikiRef: React.RefObject<HTMLIFrameElement | null>;
   /** When false, timer pauses (e.g., during pre-game countdown). */
   timerRunning?: boolean;
+  mode?: GameMode;
+  /** Absolute epoch-ms deadline for golf matches; null otherwise. */
+  deadline?: number | null;
+  /** Whether the local player may forfeit (golf, still racing). */
+  canForfeit?: boolean;
+  onForfeit?: () => void;
+}
+
+function formatClock(totalSeconds: number) {
+  const s = Math.max(0, totalSeconds);
+  const mm = String(Math.floor(s / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
 }
 
 function useGameTimer(running: boolean) {
@@ -38,9 +53,25 @@ function useGameTimer(running: boolean) {
     return () => clearInterval(id);
   }, [running]);
 
-  const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
-  const ss = String(seconds % 60).padStart(2, '0');
-  return `${mm}:${ss}`;
+  return formatClock(seconds);
+}
+
+/** Counts down to an absolute deadline (golf mode); null = inactive. */
+function useDeadlineTimer(deadline: number | null | undefined, running: boolean) {
+  const [remaining, setRemaining] = useState(() =>
+    deadline ? Math.ceil((deadline - Date.now()) / 1000) : 0
+  );
+
+  useEffect(() => {
+    if (!deadline || !running) return;
+    const update = () =>
+      setRemaining(Math.ceil((deadline - Date.now()) / 1000));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [deadline, running]);
+
+  return remaining;
 }
 
 export function GameScreen({
@@ -52,9 +83,28 @@ export function GameScreen({
   onWikiFrameLoad,
   wikiRef,
   timerRunning = true,
+  mode = 'race',
+  deadline = null,
+  canForfeit = false,
+  onForfeit,
 }: Props) {
-  const timer = useGameTimer(timerRunning);
+  const elapsed = useGameTimer(timerRunning);
+  const isGolf = mode === 'golf';
+  const remainingSeconds = useDeadlineTimer(
+    isGolf ? deadline : null,
+    timerRunning
+  );
+  const timer = isGolf && deadline ? formatClock(remainingSeconds) : elapsed;
+  const lowTime = isGolf && deadline != null && remainingSeconds <= 30;
   const myColor = players.find((p) => p.id === myPlayerId)?.color ?? '#111';
+
+  const handleForfeit = () => {
+    if (!onForfeit) return;
+    const ok = window.confirm(
+      'Give up? You will forfeit this round and can no longer win.'
+    );
+    if (ok) onForfeit();
+  };
 
   useEffect(() => {
     const frame = wikiRef.current;
@@ -77,21 +127,53 @@ export function GameScreen({
     <div className='game-screen'>
       {/* ── Top bar ── */}
       <div className='game-topbar'>
-        <div className='game-timer'>{timer}</div>
+        <div
+          className={[
+            'game-timer',
+            isGolf && deadline ? 'game-timer--countdown' : '',
+            lowTime ? 'game-timer--low' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {timer}
+        </div>
+        {isGolf && (
+          <span className='game-mode-badge'>Golf · fewest clicks</span>
+        )}
         <div className='game-player-capsules'>
           {players.map((p) => (
             <div
               key={p.id}
-              className='game-player-capsule'
+              className={[
+                'game-player-capsule',
+                p.forfeited ? 'game-player-capsule--forfeited' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               style={{ background: p.color }}
             >
               <span className='game-player-capsule-name'>{p.name}</span>
               <span className='game-player-capsule-count'>
-                {p.finished ? '✓' : Math.max(0, p.moves.length - 1)}
+                {p.forfeited
+                  ? '✕'
+                  : p.finished
+                  ? '✓'
+                  : Math.max(0, p.moves.length - 1)}
               </span>
             </div>
           ))}
         </div>
+        {canForfeit && (
+          <button
+            type='button'
+            className='game-giveup-btn'
+            onClick={handleForfeit}
+          >
+            <Flag size={14} />
+            Give up
+          </button>
+        )}
       </div>
 
       {/* ── Main area: iframe + right panel ── */}
