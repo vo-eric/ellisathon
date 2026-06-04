@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Crown, Flag, Trophy } from 'lucide-react';
 import type { GolfStanding } from '../utils/golfStandings';
+import { useFlipList } from '../hooks/useFlipList';
 
 interface Props {
   standings: GolfStanding[];
@@ -26,6 +27,16 @@ function clicksLabel(clicks: number): string {
   return `${clicks} click${clicks === 1 ? '' : 's'}`;
 }
 
+/** Stable key so FLIP runs when order, clicks, or status change. */
+function standingsSignature(standings: GolfStanding[]): string {
+  return standings
+    .map(
+      (s) =>
+        `${s.id}:${s.clicks}:${s.status}:${s.place ?? '—'}`
+    )
+    .join('|');
+}
+
 function useCountdown(deadline: number | null | undefined, live: boolean) {
   const [remaining, setRemaining] = useState(() =>
     deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : 0
@@ -44,6 +55,41 @@ function useCountdown(deadline: number | null | undefined, live: boolean) {
   return `${mm}:${ss}`;
 }
 
+/** Brief pulse when click count or placement label changes. */
+function useRankAndClickPulse(standings: GolfStanding[]) {
+  const prevRef = useRef<Map<string, { clicks: number; place: number | null }>>(
+    new Map()
+  );
+  const [pulseRank, setPulseRank] = useState<Set<string>>(() => new Set());
+  const [pulseClicks, setPulseClicks] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    const rankPulse = new Set<string>();
+    const clickPulse = new Set<string>();
+
+    for (const s of standings) {
+      const prev = prevRef.current.get(s.id);
+      if (prev) {
+        if (prev.place !== s.place) rankPulse.add(s.id);
+        if (prev.clicks !== s.clicks) clickPulse.add(s.id);
+      }
+      prevRef.current.set(s.id, { clicks: s.clicks, place: s.place });
+    }
+
+    if (rankPulse.size === 0 && clickPulse.size === 0) return;
+
+    setPulseRank(rankPulse);
+    setPulseClicks(clickPulse);
+    const t = window.setTimeout(() => {
+      setPulseRank(new Set());
+      setPulseClicks(new Set());
+    }, 520);
+    return () => clearTimeout(t);
+  }, [standings]);
+
+  return { pulseRank, pulseClicks };
+}
+
 export default function GolfResultsBoard({
   standings,
   currentPlayerId,
@@ -55,10 +101,11 @@ export default function GolfResultsBoard({
   onViewResults,
 }: Props) {
   const countdown = useCountdown(deadline, live);
+  const listRef = useFlipList(standingsSignature(standings));
+  const { pulseRank, pulseClicks } = useRankAndClickPulse(standings);
 
   const local = standings.find((s) => s.id === currentPlayerId);
   const winner = standings.find((s) => s.id === winnerId);
-  const leader = standings.find((s) => s.place === 1);
 
   let title: string;
   let subtitle: string;
@@ -99,56 +146,77 @@ export default function GolfResultsBoard({
         )}
       </div>
 
-      <ul className='golf-board-list'>
-        {standings.map((s) => {
-          const isWinner = !live && winnerId === s.id;
-          const isLeading = live && s.place === 1;
-          const isYou = s.id === currentPlayerId;
+      <div className='golf-board-list-wrap'>
+        <ul ref={listRef} className='golf-board-list'>
+          {standings.map((s) => {
+            const isWinner = !live && winnerId === s.id;
+            const isLeading = live && s.place === 1;
+            const isYou = s.id === currentPlayerId;
 
-          const resultText =
-            s.status === 'finished'
-              ? clicksLabel(s.clicks)
+            const resultText =
+              s.status === 'finished'
+                ? clicksLabel(s.clicks)
+                : s.status === 'forfeited'
+                ? 'gave up'
+                : `${clicksLabel(s.clicks)} · in progress`;
+
+            const rankLabel = s.place
+              ? ordinal(s.place)
               : s.status === 'forfeited'
-              ? 'gave up'
-              : `${clicksLabel(s.clicks)} · in progress`;
+              ? null
+              : '—';
 
-          return (
-            <li
-              key={s.id}
-              className={[
-                'golf-board-row',
-                isWinner ? 'golf-board-row--winner' : '',
-                isLeading ? 'golf-board-row--leading' : '',
-                isYou ? 'golf-board-row--you' : '',
-                s.status === 'forfeited' ? 'golf-board-row--forfeited' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              <span className='golf-board-rank'>
-                {(isWinner || isLeading) && (
-                  <Crown size={16} className='golf-board-crown' />
-                )}
-                {s.place ? ordinal(s.place) : s.status === 'forfeited' ? (
-                  <Flag size={14} />
-                ) : (
-                  '—'
-                )}
-              </span>
-              <span
-                className='golf-board-dot'
-                style={{ background: s.color }}
-                aria-hidden
-              />
-              <span className='golf-board-name'>
-                {s.name}
-                {isYou && <span className='golf-board-you'>you</span>}
-              </span>
-              <span className='golf-board-result'>{resultText}</span>
-            </li>
-          );
-        })}
-      </ul>
+            return (
+              <li
+                key={s.id}
+                data-flip-id={s.id}
+                className={[
+                  'golf-board-row',
+                  isWinner ? 'golf-board-row--winner' : '',
+                  isLeading ? 'golf-board-row--leading' : '',
+                  isYou ? 'golf-board-row--you' : '',
+                  s.status === 'forfeited' ? 'golf-board-row--forfeited' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <span
+                  className={[
+                    'golf-board-rank',
+                    pulseRank.has(s.id) ? 'golf-board-rank--pulse' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {(isWinner || isLeading) && (
+                    <Crown size={16} className='golf-board-crown' />
+                  )}
+                  {rankLabel ?? <Flag size={14} />}
+                </span>
+                <span
+                  className='golf-board-dot'
+                  style={{ background: s.color }}
+                  aria-hidden
+                />
+                <span className='golf-board-name'>
+                  {s.name}
+                  {isYou && <span className='golf-board-you'>you</span>}
+                </span>
+                <span
+                  className={[
+                    'golf-board-result',
+                    pulseClicks.has(s.id) ? 'golf-board-result--pulse' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {resultText}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
 
       {!live && (onBackToLobbies || onViewResults) && (
         <div className='golf-board-actions'>
