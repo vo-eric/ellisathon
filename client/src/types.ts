@@ -3,6 +3,16 @@ import { PathMove } from './hooks/useReplay';
 
 export type LobbyStatus = 'waiting' | 'in_progress' | 'finished';
 
+export type GameMode = 'race' | 'golf';
+
+export type PlayerMatchStatus = 'racing' | 'finished' | 'forfeited';
+
+export interface PlayerProgress {
+  status: PlayerMatchStatus;
+  clicks: number;
+  finishedAt: number | null;
+}
+
 export interface MoveListNodeSnapshot {
   article: string;
   url: string;
@@ -38,6 +48,15 @@ export interface LobbySnapshot {
   targetArticle: Article;
   winnerId: string | null;
   maxPlayers: number;
+  mode: GameMode;
+  /** Golf-mode match time limit in ms. */
+  timeLimitMs: number;
+  /** Absolute epoch-ms deadline for golf matches in progress; null otherwise. */
+  deadline: number | null;
+  /** Seated players captured at game start (persists across disconnects). */
+  participants: { id: string; name: string }[];
+  /** Per-participant progress keyed by playerId. */
+  progress: Record<string, PlayerProgress>;
 }
 
 export type ServerMessage =
@@ -60,8 +79,9 @@ export type ServerMessage =
         end: boolean;
       };
     }
+  | { type: 'player_forfeited'; payload: { playerId: string } }
   | {
       type: 'game_over';
-      payload: { winnerId: string; lobby: LobbySnapshot };
+      payload: { winnerId: string | null; lobby: LobbySnapshot };
     }
   | { type: 'error'; payload: { message: string } };

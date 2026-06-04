@@ -1429,6 +1429,326 @@ button:disabled {
   font-style: italic;
 }
 
+/* --- Game mode: golf additions --- */
+.game-timer--countdown {
+  background: #1f2937;
+}
+
+.game-timer--low {
+  background: var(--red);
+  animation: timer-pulse 1s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.game-mode-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.game-player-capsule--forfeited {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.game-giveup-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--red);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--red);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.game-giveup-btn:hover {
+  background: var(--red);
+  color: #fff;
+}
+
+/* --- Waiting room: mode selector --- */
+.waiting-room-mode-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.waiting-room-mode-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.waiting-room-mode-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.waiting-room-mode-btn:disabled {
+  cursor: not-allowed;
+}
+
+.waiting-room-mode-btn--active {
+  background: var(--accent);
+  color: #faf8f0;
+  border-color: var(--accent);
+}
+
+.waiting-room-mode-btn--active .waiting-room-mode-desc {
+  color: rgba(250, 248, 240, 0.8);
+}
+
+.waiting-room-mode-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.waiting-room-mode-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.waiting-room-mode-hint {
+  margin-top: 8px;
+}
+
+.waiting-room-timelimit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.waiting-room-timelimit-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.waiting-room-timelimit-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-width: 56px;
+  text-align: center;
+}
+
+/* --- Lobby list: mode badge --- */
+.lobby-mode-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.lobby-mode-badge--golf {
+  background: #111;
+  color: #faf8f0;
+}
+
+/* --- Game over: golf standings --- */
+.gameover-standings {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.gameover-standing-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gameover-standing-row:last-child {
+  border-bottom: none;
+}
+
+.gameover-standing-rank {
+  font-weight: 700;
+  min-width: 28px;
+  color: var(--text-muted);
+}
+
+.gameover-standing-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.gameover-standing-result {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* --- Golf live / final results board --- */
+.golf-board {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.golf-board-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.golf-board-trophy {
+  color: #d9a400;
+  margin-bottom: 4px;
+}
+
+.golf-board-title {
+  margin: 0 0 6px;
+}
+
+.golf-board-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.golf-board-countdown {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.golf-board-countdown strong {
+  color: var(--text);
+}
+
+.golf-board-list {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.golf-board-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transition: background 0.3s ease;
+}
+
+.golf-board-row:last-child {
+  border-bottom: none;
+}
+
+.golf-board-row--leading,
+.golf-board-row--winner {
+  background: #fff7d6;
+}
+
+.golf-board-row--winner {
+  font-weight: 700;
+}
+
+.golf-board-row--you {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.golf-board-row--forfeited {
+  opacity: 0.55;
+}
+
+.golf-board-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 46px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.golf-board-crown {
+  color: #d9a400;
+}
+
+.golf-board-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+}
+
+.golf-board-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.golf-board-you {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #faf8f0;
+}
+
+.golf-board-result {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.golf-board-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
 @keyframes node-pop {
   0% {
     transform: scale(0.6);

@@ -192,6 +192,59 @@ export class LobbyManagerDO implements DurableObject {
           break;
         }
 
+        case 'set_mode': {
+          const mode = msg.payload.mode;
+          if (mode !== 'race' && mode !== 'golf') {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: "set_mode requires mode 'race' or 'golf'" },
+            });
+            return;
+          }
+          const err = this.manager.setMode(lobbyId, currentPlayer.id, mode);
+          if (err) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: err },
+            });
+          }
+          break;
+        }
+
+        case 'set_time_limit': {
+          const seconds = msg.payload.seconds;
+          if (typeof seconds !== 'number' || !Number.isFinite(seconds)) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: 'set_time_limit requires numeric seconds' },
+            });
+            return;
+          }
+          const err = this.manager.setTimeLimit(
+            lobbyId,
+            currentPlayer.id,
+            seconds
+          );
+          if (err) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: err },
+            });
+          }
+          break;
+        }
+
+        case 'forfeit': {
+          const err = this.manager.forfeit(lobbyId, currentPlayer.id);
+          if (err) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: err },
+            });
+          }
+          break;
+        }
+
         case 'move': {
           const article = msg.payload.article as string | undefined;
           if (!article) {
