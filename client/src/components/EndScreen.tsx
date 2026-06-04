@@ -21,14 +21,17 @@ const GolfEndScreen = ({
   currentPlayerId,
   onBackToLobbies,
   onViewResults,
+  onReturnToLobby,
 }: {
   lobby: LobbySnapshot;
   currentPlayerId: string;
   onBackToLobbies: () => void;
   onViewResults: () => void;
+  onReturnToLobby: () => void;
 }) => {
   const standings = buildFinalGolfStandings(lobby);
   const targetTitle = coerceArticle(lobby.targetArticle).title;
+  const isHost = lobby.hostId === currentPlayerId;
 
   return (
     <GolfResultsBoard
@@ -37,8 +40,10 @@ const GolfEndScreen = ({
       targetTitle={targetTitle}
       live={false}
       winnerId={lobby.winnerId}
+      isHost={isHost}
       onBackToLobbies={onBackToLobbies}
       onViewResults={onViewResults}
+      onReturnToLobby={onReturnToLobby}
     />
   );
 };
@@ -48,14 +53,17 @@ const RaceEndScreen = ({
   currentPlayerId,
   onBackToLobbies,
   onViewResults,
+  onReturnToLobby,
 }: {
   lobby: LobbySnapshot;
   currentPlayerId: string;
   onBackToLobbies: () => void;
   onViewResults: () => void;
+  onReturnToLobby: () => void;
 }) => {
   const winner = lobby.players.find((p) => p.id === lobby.winnerId);
   const isCurrentPlayerWinner = winner?.id === currentPlayerId;
+  const isHost = lobby.hostId === currentPlayerId;
   const numberOfMovesByWinnner = movesForPlayerInChain(
     lobby.moveChain,
     winner?.id ?? ''
@@ -75,10 +83,24 @@ const RaceEndScreen = ({
         <button type='button' onClick={onBackToLobbies}>
           Back to Lobbies
         </button>
-        <button type='button' className='btn-primary' onClick={onViewResults}>
+        <button type='button' onClick={onViewResults}>
           View Results
         </button>
+        {isHost && (
+          <button
+            type='button'
+            className='btn-primary'
+            onClick={onReturnToLobby}
+          >
+            Play Again
+          </button>
+        )}
       </div>
+      {!isHost && (
+        <p className='gameover-info'>
+          Waiting for the host to start a new round…
+        </p>
+      )}
     </div>
   );
 };
@@ -88,6 +110,7 @@ const EndScreen = (props: {
   currentPlayerId: string;
   onBackToLobbies: () => void;
   onViewResults: () => void;
+  onReturnToLobby: () => void;
 }) => {
   return props.lobby.mode === 'golf' ? (
     <GolfEndScreen {...props} />

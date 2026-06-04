@@ -52,13 +52,11 @@ export class LobbyManagerDO implements DurableObject {
       return new Response(null, { status: 101, webSocket: client });
     }
 
-    server.addEventListener('message', (event) => {
+    server.addEventListener('message', async (event) => {
       const currentLobby = this.manager.getLobby(lobbyId);
       if (!currentLobby) return;
 
-      const currentPlayer = currentLobby.players.find(
-        (p) => p.id === playerId
-      );
+      const currentPlayer = currentLobby.players.find((p) => p.id === playerId);
       if (!currentPlayer) return;
 
       let msg: ClientMessage;
@@ -105,10 +103,7 @@ export class LobbyManagerDO implements DurableObject {
 
         case 'claim_seat': {
           const seatIndex = msg.payload.seatIndex;
-          if (
-            typeof seatIndex !== 'number' ||
-            !Number.isInteger(seatIndex)
-          ) {
+          if (typeof seatIndex !== 'number' || !Number.isInteger(seatIndex)) {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
               payload: { message: 'claim_seat requires integer seatIndex' },
@@ -152,11 +147,7 @@ export class LobbyManagerDO implements DurableObject {
             });
             return;
           }
-          const err = this.manager.setSeats(
-            lobbyId,
-            currentPlayer.id,
-            count
-          );
+          const err = this.manager.setSeats(lobbyId, currentPlayer.id, count);
           if (err) {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
@@ -168,10 +159,7 @@ export class LobbyManagerDO implements DurableObject {
 
         case 'kick_seat': {
           const seatIndex = msg.payload.seatIndex;
-          if (
-            typeof seatIndex !== 'number' ||
-            !Number.isInteger(seatIndex)
-          ) {
+          if (typeof seatIndex !== 'number' || !Number.isInteger(seatIndex)) {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
               payload: { message: 'kick_seat requires integer seatIndex' },
@@ -187,6 +175,33 @@ export class LobbyManagerDO implements DurableObject {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
               payload: { message: err },
+            });
+          }
+          break;
+        }
+
+        case 'return_to_lobby': {
+          const check = this.manager.canReturnToLobby(
+            lobbyId,
+            currentPlayer.id
+          );
+          if (check) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: check },
+            });
+            return;
+          }
+          try {
+            const { start, target } = await getRandomArticles();
+            this.manager.returnToLobby(lobbyId, start, target);
+          } catch (err) {
+            console.error('Wikipedia fetch error:', err);
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: {
+                message: 'Failed to fetch new articles. Try again.',
+              },
             });
           }
           break;
@@ -265,8 +280,7 @@ export class LobbyManagerDO implements DurableObject {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
               payload: {
-                message:
-                  'Cannot record move — game may not be in progress',
+                message: 'Cannot record move — game may not be in progress',
               },
             });
           }

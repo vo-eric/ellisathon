@@ -35,6 +35,7 @@ export default function App() {
     setMode,
     setTimeLimit,
     forfeit,
+    returnToLobby,
     dismissLobbyError,
     sendMove,
     setIframeSrc,
@@ -65,12 +66,9 @@ export default function App() {
     (localGolfStanding?.status === 'finished' ||
       localGolfStanding?.status === 'forfeited');
 
-  const activeStartTitle =
-    isPlaying || isCountdown ? match.startTitle : '';
-  const activeTargetTitle =
-    isPlaying || isCountdown ? match.targetTitle : '';
-  const activeIframeSrc =
-    isPlaying || isCountdown ? match.iframeSrc : null;
+  const activeStartTitle = isPlaying || isCountdown ? match.startTitle : '';
+  const activeTargetTitle = isPlaying || isCountdown ? match.targetTitle : '';
+  const activeIframeSrc = isPlaying || isCountdown ? match.iframeSrc : null;
 
   const { wikiRef, onWikiFrameLoad, resetRefs } = useWikiNavigation({
     isPlaying,
@@ -177,7 +175,9 @@ export default function App() {
               <GolfResultsBoard
                 standings={liveGolfStandings}
                 currentPlayerId={myPlayerId}
-                targetTitle={match.status === 'playing' ? match.targetTitle : ''}
+                targetTitle={
+                  match.status === 'playing' ? match.targetTitle : ''
+                }
                 live
                 deadline={match.status === 'playing' ? match.deadline : null}
               />
@@ -279,6 +279,7 @@ export default function App() {
                 currentPlayerId={myPlayerId}
                 onBackToLobbies={backToLobbies}
                 onViewResults={() => setScreen('results')}
+                onReturnToLobby={returnToLobby}
               />
             )}
           </div>

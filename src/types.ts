@@ -91,6 +91,7 @@ export type ClientMessageType =
   | 'start_game'
   | 'set_seats'
   | 'kick_seat'
+  | 'return_to_lobby'
   | 'set_mode'
   | 'set_time_limit'
   | 'forfeit';

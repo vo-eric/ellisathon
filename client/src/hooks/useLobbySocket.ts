@@ -125,6 +125,19 @@ export function useLobbySocket({
             ? { ...prev, lobby, countdownSeconds: null }
             : { lobby, info: '', countdownSeconds: null }
         );
+        // Host returned everyone to the lobby after a finished game: pull
+        // players off the game-over / results / game screens back to waiting.
+        if (lobby.status === 'waiting') {
+          setMatch((prev) =>
+            prev.status === 'idle' ? prev : { status: 'idle' }
+          );
+          setScreen((prev) =>
+            prev === 'gameover' || prev === 'results' || prev === 'game'
+              ? 'waiting'
+              : prev
+          );
+          onResetNavigation();
+        }
         break;
       }
       case 'countdown_tick': {
@@ -326,6 +339,12 @@ export function useLobbySocket({
     ws.send(JSON.stringify({ type: 'set_seats', payload: { count } }));
   }, []);
 
+  const returnToLobby = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'return_to_lobby', payload: {} }));
+  }, []);
+
   const kickSeat = useCallback((seatIndex: number) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -382,6 +401,7 @@ export function useLobbySocket({
     startGame,
     setSeats,
     kickSeat,
+    returnToLobby,
     setMode,
     setTimeLimit,
     forfeit,

@@ -15,6 +15,9 @@ interface Props {
   deadline?: number | null;
   onBackToLobbies?: () => void;
   onViewResults?: () => void;
+  /** Host-only: return everyone to the waiting room for a new round. */
+  onReturnToLobby?: () => void;
+  isHost?: boolean;
 }
 
 function ordinal(n: number): string {
@@ -99,6 +102,8 @@ export default function GolfResultsBoard({
   deadline,
   onBackToLobbies,
   onViewResults,
+  onReturnToLobby,
+  isHost = false,
 }: Props) {
   const countdown = useCountdown(deadline, live);
   const listRef = useFlipList(standingsSignature(standings));
@@ -240,7 +245,8 @@ export default function GolfResultsBoard({
         </ul>
       </div>
 
-      {!live && (onBackToLobbies || onViewResults) && (
+      {!live &&
+        (onBackToLobbies || onViewResults || (isHost && onReturnToLobby)) && (
         <div className='golf-board-actions'>
           {onBackToLobbies && (
             <button type='button' onClick={onBackToLobbies}>
@@ -248,11 +254,25 @@ export default function GolfResultsBoard({
             </button>
           )}
           {onViewResults && (
-            <button type='button' className='btn-primary' onClick={onViewResults}>
+            <button type='button' onClick={onViewResults}>
               View Results
             </button>
           )}
+          {isHost && onReturnToLobby && (
+            <button
+              type='button'
+              className='btn-primary'
+              onClick={onReturnToLobby}
+            >
+              Play Again
+            </button>
+          )}
         </div>
+      )}
+      {!live && !isHost && (
+        <p className='gameover-info'>
+          Waiting for the host to start a new round…
+        </p>
       )}
     </div>
   );
