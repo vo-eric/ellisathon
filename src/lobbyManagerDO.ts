@@ -52,7 +52,7 @@ export class LobbyManagerDO implements DurableObject {
       return new Response(null, { status: 101, webSocket: client });
     }
 
-    server.addEventListener('message', (event) => {
+    server.addEventListener('message', async (event) => {
       const currentLobby = this.manager.getLobby(lobbyId);
       if (!currentLobby) return;
 
@@ -187,6 +187,33 @@ export class LobbyManagerDO implements DurableObject {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
               payload: { message: err },
+            });
+          }
+          break;
+        }
+
+        case 'return_to_lobby': {
+          const check = this.manager.canReturnToLobby(
+            lobbyId,
+            currentPlayer.id
+          );
+          if (check) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: check },
+            });
+            return;
+          }
+          try {
+            const { start, target } = await getRandomArticles();
+            this.manager.returnToLobby(lobbyId, start, target);
+          } catch (err) {
+            console.error('Wikipedia fetch error:', err);
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: {
+                message: 'Failed to fetch new articles. Try again.',
+              },
             });
           }
           break;

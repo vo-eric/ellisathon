@@ -30,6 +30,7 @@ export default function App() {
     startGame,
     setSeats,
     kickSeat,
+    returnToLobby,
     dismissLobbyError,
     sendMove,
     setIframeSrc,
@@ -229,6 +230,7 @@ export default function App() {
                 currentPlayerId={myPlayerId}
                 onBackToLobbies={backToLobbies}
                 onViewResults={() => setScreen('results')}
+                onReturnToLobby={returnToLobby}
               />
             )}
           </div>

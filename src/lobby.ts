@@ -306,6 +306,45 @@ export class LobbyManager {
     return null;
   }
 
+  /** Host-only validation for returning a finished lobby to the waiting room. */
+  canReturnToLobby(lobbyId: string, playerId: string): string | null {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return 'Lobby not found';
+    if (lobby.hostId !== playerId)
+      return 'Only the host can return to the lobby';
+    if (lobby.status !== 'finished') return 'Game is not finished';
+    return null;
+  }
+
+  /**
+   * Reset a finished lobby back to the waiting room with fresh articles.
+   * Seats are preserved (players stay seated) but ready flags are cleared.
+   */
+  returnToLobby(
+    lobbyId: string,
+    startArticle: Article,
+    targetArticle: Article
+  ): boolean {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return false;
+    if (lobby.status !== 'finished') return false;
+
+    this.cancelCountdown(lobbyId);
+
+    lobby.status = 'waiting';
+    lobby.startedAt = null;
+    lobby.finishedAt = null;
+    lobby.winnerId = null;
+    lobby.startArticle = startArticle;
+    lobby.targetArticle = targetArticle;
+    lobby.seatReady = lobby.seatReady.map(() => false);
+
+    this.moveChains.set(lobbyId, { head: null, tail: null });
+
+    this.broadcastLobbySync(lobby);
+    return true;
+  }
+
   /** Host-only: kick a player out of their seat (they remain in the lobby). */
   kickSeat(lobbyId: string, hostId: string, seatIndex: number): string | null {
     const lobby = this.lobbies.get(lobbyId);

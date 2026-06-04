@@ -19,14 +19,17 @@ const EndScreen = ({
   currentPlayerId,
   onBackToLobbies,
   onViewResults,
+  onReturnToLobby,
 }: {
   lobby: LobbySnapshot;
   currentPlayerId: string;
   onBackToLobbies: () => void;
   onViewResults: () => void;
+  onReturnToLobby: () => void;
 }) => {
   const winner = lobby.players.find((p) => p.id === lobby.winnerId);
   const isCurrentPlayerWinner = winner?.id === currentPlayerId;
+  const isHost = lobby.hostId === currentPlayerId;
   const numberOfMovesByWinnner = movesForPlayerInChain(
     lobby.moveChain,
     winner?.id ?? ''
@@ -44,10 +47,24 @@ const EndScreen = ({
         <button type='button' onClick={onBackToLobbies}>
           Back to Lobbies
         </button>
-        <button type='button' className='btn-primary' onClick={onViewResults}>
+        <button type='button' onClick={onViewResults}>
           View Results
         </button>
+        {isHost && (
+          <button
+            type='button'
+            className='btn-primary'
+            onClick={onReturnToLobby}
+          >
+            Play Again
+          </button>
+        )}
       </div>
+      {!isHost && (
+        <p className='gameover-info'>
+          Waiting for the host to start a new round…
+        </p>
+      )}
     </div>
   );
 };

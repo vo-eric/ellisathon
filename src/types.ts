@@ -63,7 +63,8 @@ export type ClientMessageType =
   | 'set_ready'
   | 'start_game'
   | 'set_seats'
-  | 'kick_seat';
+  | 'kick_seat'
+  | 'return_to_lobby';
 
 export type ServerMessageType =
   | 'lobby_state'
