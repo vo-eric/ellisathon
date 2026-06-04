@@ -21,14 +21,17 @@ const GolfEndScreen = ({
   currentPlayerId,
   onBackToLobbies,
   onViewResults,
+  onReturnToLobby,
 }: {
   lobby: LobbySnapshot;
   currentPlayerId: string;
   onBackToLobbies: () => void;
   onViewResults: () => void;
+  onReturnToLobby: () => void;
 }) => {
   const standings = buildFinalGolfStandings(lobby);
   const targetTitle = coerceArticle(lobby.targetArticle).title;
+  const isHost = lobby.hostId === currentPlayerId;
 
   return (
     <GolfResultsBoard
@@ -37,8 +40,10 @@ const GolfEndScreen = ({
       targetTitle={targetTitle}
       live={false}
       winnerId={lobby.winnerId}
+      isHost={isHost}
       onBackToLobbies={onBackToLobbies}
       onViewResults={onViewResults}
+      onReturnToLobby={onReturnToLobby}
     />
   );
 };
@@ -105,6 +110,7 @@ const EndScreen = (props: {
   currentPlayerId: string;
   onBackToLobbies: () => void;
   onViewResults: () => void;
+  onReturnToLobby: () => void;
 }) => {
   return props.lobby.mode === 'golf' ? (
     <GolfEndScreen {...props} />

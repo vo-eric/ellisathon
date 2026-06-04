@@ -412,6 +412,7 @@ export class LobbyManager {
     if (lobby.status !== 'finished') return false;
 
     this.cancelCountdown(lobbyId);
+    this.cancelMatchTimer(lobbyId);
 
     lobby.status = 'waiting';
     lobby.startedAt = null;
@@ -420,6 +421,8 @@ export class LobbyManager {
     lobby.startArticle = startArticle;
     lobby.targetArticle = targetArticle;
     lobby.seatReady = lobby.seatReady.map(() => false);
+    lobby.participants = [];
+    lobby.progress = {};
 
     this.moveChains.set(lobbyId, { head: null, tail: null });
 
