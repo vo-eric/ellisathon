@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Crown, Flag, Trophy } from 'lucide-react';
+import { Check, Crown, Flag, Trophy, X } from 'lucide-react';
 import type { GolfStanding } from '../utils/golfStandings';
 import { useFlipList } from '../hooks/useFlipList';
 
@@ -153,13 +153,6 @@ export default function GolfResultsBoard({
             const isLeading = live && s.place === 1;
             const isYou = s.id === currentPlayerId;
 
-            const resultText =
-              s.status === 'finished'
-                ? clicksLabel(s.clicks)
-                : s.status === 'forfeited'
-                ? 'gave up'
-                : `${clicksLabel(s.clicks)} · in progress`;
-
             const rankLabel = s.place
               ? ordinal(s.place)
               : s.status === 'forfeited'
@@ -194,10 +187,39 @@ export default function GolfResultsBoard({
                   {rankLabel ?? <Flag size={14} />}
                 </span>
                 <span
-                  className='golf-board-dot'
+                  className={[
+                    'golf-board-dot',
+                    s.status === 'finished' ? 'golf-board-dot--finished' : '',
+                    s.status === 'forfeited' ? 'golf-board-dot--forfeited' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   style={{ background: s.color }}
-                  aria-hidden
-                />
+                  aria-label={
+                    s.status === 'finished'
+                      ? 'Reached target'
+                      : s.status === 'forfeited'
+                      ? 'Gave up'
+                      : 'In progress'
+                  }
+                >
+                  {s.status === 'finished' && (
+                    <Check
+                      size={13}
+                      strokeWidth={3}
+                      className='golf-board-dot-icon'
+                      aria-hidden
+                    />
+                  )}
+                  {s.status === 'forfeited' && (
+                    <X
+                      size={13}
+                      strokeWidth={3}
+                      className='golf-board-dot-icon'
+                      aria-hidden
+                    />
+                  )}
+                </span>
                 <span className='golf-board-name'>
                   {s.name}
                   {isYou && <span className='golf-board-you'>you</span>}
@@ -210,7 +232,7 @@ export default function GolfResultsBoard({
                     .filter(Boolean)
                     .join(' ')}
                 >
-                  {resultText}
+                  {clicksLabel(s.clicks)}
                 </span>
               </li>
             );

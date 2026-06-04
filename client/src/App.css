@@ -1730,11 +1730,35 @@ button:disabled {
 }
 
 .golf-board-dot {
-  width: 14px;
-  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
+}
+
+.golf-board-dot-icon {
+  color: #111;
+  flex-shrink: 0;
+}
+
+.golf-board-dot--finished .golf-board-dot-icon,
+.golf-board-dot--forfeited .golf-board-dot-icon {
+  animation: golf-dot-status-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes golf-dot-status-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .golf-board-name {
@@ -1808,7 +1832,9 @@ button:disabled {
   }
 
   .golf-board-rank--pulse,
-  .golf-board-result--pulse {
+  .golf-board-result--pulse,
+  .golf-board-dot--finished .golf-board-dot-icon,
+  .golf-board-dot--forfeited .golf-board-dot-icon {
     animation: none;
   }
 }
