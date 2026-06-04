@@ -1,5 +1,6 @@
 import {
   Article,
+  GameMode,
   Lobby,
   LobbySnapshot,
   MoveListNode,
@@ -12,6 +13,10 @@ const DEFAULT_SEATS = 2;
 const MIN_SEATS = 1;
 const MAX_SEATS = 8;
 const COUNTDOWN_SECONDS = 5;
+
+const DEFAULT_TIME_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
+const MIN_TIME_LIMIT_MS = 30 * 1000; // 30 seconds
+const MAX_TIME_LIMIT_MS = 60 * 60 * 1000; // 60 minutes
 
 function articlesMatch(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase();
@@ -34,6 +39,7 @@ export class LobbyManager {
   private lobbies: Map<string, Lobby> = new Map();
   private moveChains: Map<string, MoveChain> = new Map();
   private countdownTokens: Map<string, CountdownToken> = new Map();
+  private matchTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   createLobby(
     startArticle: Article,
@@ -54,6 +60,10 @@ export class LobbyManager {
       targetArticle,
       winnerId: null,
       maxPlayers: DEFAULT_SEATS,
+      mode: 'race',
+      timeLimitMs: DEFAULT_TIME_LIMIT_MS,
+      participants: [],
+      progress: {},
     };
     this.lobbies.set(lobby.id, lobby);
     this.moveChains.set(lobby.id, { head: null, tail: null });
@@ -74,6 +84,13 @@ export class LobbyManager {
     const moveChain = chain?.head ? this.serializeChain(chain.head) : null;
     const hideStart = lobby.status === 'waiting';
 
+    const deadline =
+      lobby.mode === 'golf' &&
+      lobby.status === 'in_progress' &&
+      lobby.startedAt !== null
+        ? lobby.startedAt + lobby.timeLimitMs
+        : null;
+
     return {
       id: lobby.id,
       status: lobby.status,
@@ -86,6 +103,13 @@ export class LobbyManager {
       targetArticle: lobby.targetArticle,
       winnerId: lobby.winnerId,
       maxPlayers: lobby.maxPlayers,
+      mode: lobby.mode,
+      timeLimitMs: lobby.timeLimitMs,
+      deadline,
+      participants: lobby.participants.map((p) => ({ ...p })),
+      progress: Object.fromEntries(
+        Object.entries(lobby.progress).map(([id, p]) => [id, { ...p }])
+      ),
     };
   }
 
@@ -133,6 +157,17 @@ export class LobbyManager {
 
     this.cancelCountdown(lobbyId);
 
+    // In an active golf match, a leaving participant is treated as a forfeit so
+    // the game can still end for everyone else.
+    let golfForfeited = false;
+    if (lobby.mode === 'golf' && lobby.status === 'in_progress') {
+      const progress = lobby.progress[playerId];
+      if (progress && progress.status === 'racing') {
+        progress.status = 'forfeited';
+        golfForfeited = true;
+      }
+    }
+
     lobby.players = lobby.players.filter((p) => p.id !== playerId);
 
     for (let i = 0; i < lobby.seats.length; i++) {
@@ -147,15 +182,28 @@ export class LobbyManager {
       payload: { playerId },
     });
 
+    if (golfForfeited) {
+      this.broadcast(lobby, {
+        type: 'player_forfeited',
+        payload: { playerId },
+      });
+    }
+
     if (lobby.players.length === 0) {
+      this.cancelMatchTimer(lobbyId);
       this.lobbies.delete(lobbyId);
       this.moveChains.delete(lobbyId);
-    } else {
-      if (lobby.hostId === playerId) {
-        const idx = Math.floor(Math.random() * lobby.players.length);
-        lobby.hostId = lobby.players[idx].id;
-      }
-      this.broadcastLobbySync(lobby);
+      return;
+    }
+
+    if (lobby.hostId === playerId) {
+      const idx = Math.floor(Math.random() * lobby.players.length);
+      lobby.hostId = lobby.players[idx].id;
+    }
+    this.broadcastLobbySync(lobby);
+
+    if (golfForfeited) {
+      this.maybeEndGolfGame(lobbyId);
     }
   }
 
@@ -263,6 +311,22 @@ export class LobbyManager {
     lobby.status = 'in_progress';
     lobby.startedAt = Date.now();
 
+    // Capture the seated players as participants and seed their progress.
+    lobby.participants = lobby.seats
+      .filter((id): id is string => id !== null)
+      .map((id) => {
+        const player = lobby.players.find((p) => p.id === id);
+        return { id, name: player?.name ?? 'Unknown' };
+      });
+    lobby.progress = {};
+    for (const participant of lobby.participants) {
+      lobby.progress[participant.id] = {
+        status: 'racing',
+        clicks: 0,
+        finishedAt: null,
+      };
+    }
+
     const url = wikipediaArticleUrl(lobby.startArticle.url);
     const end = articlesMatch(
       lobby.startArticle.title,
@@ -284,8 +348,26 @@ export class LobbyManager {
       payload: this.snapshot(lobby),
     });
 
-    if (end && lobby.players[0]) {
-      this.finishGame(lobbyId, lobby.players[0].id);
+    if (end) {
+      // Degenerate case: start article already is the target.
+      if (lobby.mode === 'golf') {
+        const now = Date.now();
+        let i = 0;
+        for (const participant of lobby.participants) {
+          const p = lobby.progress[participant.id];
+          // +i keeps finishedAt strictly ordered so tie-breaking is deterministic.
+          p.status = 'finished';
+          p.finishedAt = now + i++;
+        }
+        this.endGolfGame(lobbyId);
+      } else if (lobby.players[0]) {
+        this.finishGame(lobbyId, lobby.players[0].id);
+      }
+      return true;
+    }
+
+    if (lobby.mode === 'golf') {
+      this.scheduleMatchTimer(lobbyId, lobby.timeLimitMs);
     }
 
     return true;
@@ -396,6 +478,50 @@ export class LobbyManager {
     return null;
   }
 
+  /** Host-only: switch the game mode while waiting. Returns error string on failure. */
+  setMode(lobbyId: string, playerId: string, mode: GameMode): string | null {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return 'Lobby not found';
+    if (lobby.hostId !== playerId) return 'Only the host can change the mode';
+    if (lobby.status !== 'waiting')
+      return 'Cannot change mode after game started';
+    if (mode !== 'race' && mode !== 'golf') return 'Invalid game mode';
+
+    this.cancelCountdown(lobbyId);
+    lobby.mode = mode;
+
+    this.broadcastLobbySync(lobby);
+    return null;
+  }
+
+  /** Host-only: set the golf-mode time limit (in seconds). Returns error string on failure. */
+  setTimeLimit(
+    lobbyId: string,
+    playerId: string,
+    seconds: number
+  ): string | null {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return 'Lobby not found';
+    if (lobby.hostId !== playerId)
+      return 'Only the host can change the time limit';
+    if (lobby.status !== 'waiting')
+      return 'Cannot change the time limit after game started';
+    if (!Number.isFinite(seconds)) return 'Invalid time limit';
+
+    const ms = Math.round(seconds * 1000);
+    if (ms < MIN_TIME_LIMIT_MS || ms > MAX_TIME_LIMIT_MS) {
+      return `Time limit must be between ${MIN_TIME_LIMIT_MS / 1000} and ${
+        MAX_TIME_LIMIT_MS / 1000
+      } seconds`;
+    }
+
+    this.cancelCountdown(lobbyId);
+    lobby.timeLimitMs = ms;
+
+    this.broadcastLobbySync(lobby);
+    return null;
+  }
+
   recordMove(
     lobbyId: string,
     playerId: string,
@@ -410,6 +536,12 @@ export class LobbyManager {
 
     const playerInLobby = lobby.players.some((p) => p.id === playerId);
     if (!playerInLobby) return null;
+
+    // In golf, once a player has finished or forfeited their moves no longer count.
+    if (lobby.mode === 'golf') {
+      const progress = lobby.progress[playerId];
+      if (!progress || progress.status !== 'racing') return null;
+    }
 
     const step = chain.tail.step + 1;
     const resolvedUrl = url?.trim() || wikipediaArticleUrl(article);
@@ -438,16 +570,125 @@ export class LobbyManager {
       },
     });
 
-    if (end) {
+    if (lobby.mode === 'golf') {
+      const progress = lobby.progress[playerId];
+      if (progress) {
+        progress.clicks++;
+        if (end && progress.status === 'racing') {
+          progress.status = 'finished';
+          progress.finishedAt = Date.now();
+          this.maybeEndGolfGame(lobbyId);
+        }
+      }
+    } else if (end) {
       this.finishGame(lobbyId, playerId);
     }
 
     return node;
   }
 
+  /** Golf: a player abandons the match. They can no longer win or move. */
+  forfeit(lobbyId: string, playerId: string): string | null {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return 'Lobby not found';
+    if (lobby.mode !== 'golf') return 'Forfeit is only available in golf mode';
+    if (lobby.status !== 'in_progress') return 'Game is not in progress';
+
+    const progress = lobby.progress[playerId];
+    if (!progress) return 'You are not a participant in this match';
+    if (progress.status !== 'racing') return 'You have already finished';
+
+    progress.status = 'forfeited';
+
+    this.broadcast(lobby, {
+      type: 'player_forfeited',
+      payload: { playerId },
+    });
+
+    this.maybeEndGolfGame(lobbyId);
+    return null;
+  }
+
+  /** Golf: end the game once every participant has finished or forfeited. */
+  private maybeEndGolfGame(lobbyId: string): void {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby || lobby.mode !== 'golf' || lobby.status !== 'in_progress')
+      return;
+
+    const allDone = lobby.participants.every(
+      (p) => lobby.progress[p.id]?.status !== 'racing'
+    );
+    if (allDone) {
+      this.endGolfGame(lobbyId);
+    }
+  }
+
+  /** Golf: resolve the winner (fewest clicks; earliest finish breaks ties) and finish. */
+  private endGolfGame(lobbyId: string): void {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby || lobby.status === 'finished') return;
+
+    this.cancelMatchTimer(lobbyId);
+
+    // Any racing participant left when the timer expires is treated as forfeited.
+    for (const participant of lobby.participants) {
+      const p = lobby.progress[participant.id];
+      if (p && p.status === 'racing') {
+        p.status = 'forfeited';
+      }
+    }
+
+    let winnerId: string | null = null;
+    let bestClicks = Infinity;
+    let bestFinishedAt = Infinity;
+    for (const participant of lobby.participants) {
+      const p = lobby.progress[participant.id];
+      if (!p || p.status !== 'finished' || p.finishedAt === null) continue;
+      if (
+        p.clicks < bestClicks ||
+        (p.clicks === bestClicks && p.finishedAt < bestFinishedAt)
+      ) {
+        winnerId = participant.id;
+        bestClicks = p.clicks;
+        bestFinishedAt = p.finishedAt;
+      }
+    }
+
+    lobby.status = 'finished';
+    lobby.finishedAt = Date.now();
+    lobby.winnerId = winnerId;
+
+    this.broadcast(lobby, {
+      type: 'game_over',
+      payload: {
+        winnerId,
+        lobby: this.snapshot(lobby),
+      },
+    });
+  }
+
+  private scheduleMatchTimer(lobbyId: string, durationMs: number): void {
+    this.cancelMatchTimer(lobbyId);
+    const handle = setTimeout(() => {
+      this.matchTimers.delete(lobbyId);
+      this.endGolfGame(lobbyId);
+    }, durationMs);
+    this.matchTimers.set(lobbyId, handle);
+  }
+
+  private cancelMatchTimer(lobbyId: string): void {
+    const handle = this.matchTimers.get(lobbyId);
+    if (handle !== undefined) {
+      clearTimeout(handle);
+      this.matchTimers.delete(lobbyId);
+    }
+  }
+
   private finishGame(lobbyId: string, winnerId: string): void {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return;
+
+    this.cancelMatchTimer(lobbyId);
 
     lobby.status = 'finished';
     lobby.finishedAt = Date.now();

@@ -29,6 +29,25 @@ export interface MoveListNodeSnapshot {
 
 export type LobbyStatus = 'waiting' | 'in_progress' | 'finished';
 
+/**
+ * Game modes:
+ * - `race`: first player to reach the target wins, ending the game instantly.
+ * - `golf`: lowest number of clicks wins. The game runs until every participant
+ *   has reached the target or forfeited (or the match timer expires).
+ */
+export type GameMode = 'race' | 'golf';
+
+export type PlayerMatchStatus = 'racing' | 'finished' | 'forfeited';
+
+/** Per-participant progress, used to resolve the golf winner & render results. */
+export interface PlayerProgress {
+  status: PlayerMatchStatus;
+  /** Article navigations made by this player (excludes the shared start node). */
+  clicks: number;
+  /** Timestamp the player reached the target, or null if not (yet) finished. */
+  finishedAt: number | null;
+}
+
 export type Article = {
   url: string;
   title: string;
@@ -53,6 +72,14 @@ export interface Lobby {
   targetArticle: Article;
   winnerId: string | null;
   maxPlayers: number;
+  /** Selected game mode (host-controlled while waiting). */
+  mode: GameMode;
+  /** Golf-mode match time limit in ms (host-configurable while waiting). */
+  timeLimitMs: number;
+  /** Seated players captured at game start; persists even if they disconnect. */
+  participants: { id: string; name: string }[];
+  /** Per-participant progress keyed by playerId (populated at game start). */
+  progress: Record<string, PlayerProgress>;
 }
 
 // --- WebSocket message protocol ---
@@ -64,7 +91,10 @@ export type ClientMessageType =
   | 'start_game'
   | 'set_seats'
   | 'kick_seat'
-  | 'return_to_lobby';
+  | 'return_to_lobby'
+  | 'set_mode'
+  | 'set_time_limit'
+  | 'forfeit';
 
 export type ServerMessageType =
   | 'lobby_state'
@@ -74,6 +104,7 @@ export type ServerMessageType =
   | 'countdown_tick'
   | 'game_start'
   | 'move_made'
+  | 'player_forfeited'
   | 'game_over'
   | 'error';
 
@@ -104,4 +135,13 @@ export interface LobbySnapshot {
   targetArticle: Article;
   winnerId: string | null;
   maxPlayers: number;
+  mode: GameMode;
+  /** Golf-mode match time limit in ms. */
+  timeLimitMs: number;
+  /** Absolute epoch-ms deadline for golf matches in progress; null otherwise. */
+  deadline: number | null;
+  /** Seated players captured at game start (persists across disconnects). */
+  participants: { id: string; name: string }[];
+  /** Per-participant progress keyed by playerId. */
+  progress: Record<string, PlayerProgress>;
 }

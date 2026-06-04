@@ -56,9 +56,7 @@ export class LobbyManagerDO implements DurableObject {
       const currentLobby = this.manager.getLobby(lobbyId);
       if (!currentLobby) return;
 
-      const currentPlayer = currentLobby.players.find(
-        (p) => p.id === playerId
-      );
+      const currentPlayer = currentLobby.players.find((p) => p.id === playerId);
       if (!currentPlayer) return;
 
       let msg: ClientMessage;
@@ -105,10 +103,7 @@ export class LobbyManagerDO implements DurableObject {
 
         case 'claim_seat': {
           const seatIndex = msg.payload.seatIndex;
-          if (
-            typeof seatIndex !== 'number' ||
-            !Number.isInteger(seatIndex)
-          ) {
+          if (typeof seatIndex !== 'number' || !Number.isInteger(seatIndex)) {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
               payload: { message: 'claim_seat requires integer seatIndex' },
@@ -152,11 +147,7 @@ export class LobbyManagerDO implements DurableObject {
             });
             return;
           }
-          const err = this.manager.setSeats(
-            lobbyId,
-            currentPlayer.id,
-            count
-          );
+          const err = this.manager.setSeats(lobbyId, currentPlayer.id, count);
           if (err) {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
@@ -168,10 +159,7 @@ export class LobbyManagerDO implements DurableObject {
 
         case 'kick_seat': {
           const seatIndex = msg.payload.seatIndex;
-          if (
-            typeof seatIndex !== 'number' ||
-            !Number.isInteger(seatIndex)
-          ) {
+          if (typeof seatIndex !== 'number' || !Number.isInteger(seatIndex)) {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
               payload: { message: 'kick_seat requires integer seatIndex' },
@@ -219,6 +207,59 @@ export class LobbyManagerDO implements DurableObject {
           break;
         }
 
+        case 'set_mode': {
+          const mode = msg.payload.mode;
+          if (mode !== 'race' && mode !== 'golf') {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: "set_mode requires mode 'race' or 'golf'" },
+            });
+            return;
+          }
+          const err = this.manager.setMode(lobbyId, currentPlayer.id, mode);
+          if (err) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: err },
+            });
+          }
+          break;
+        }
+
+        case 'set_time_limit': {
+          const seconds = msg.payload.seconds;
+          if (typeof seconds !== 'number' || !Number.isFinite(seconds)) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: 'set_time_limit requires numeric seconds' },
+            });
+            return;
+          }
+          const err = this.manager.setTimeLimit(
+            lobbyId,
+            currentPlayer.id,
+            seconds
+          );
+          if (err) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: err },
+            });
+          }
+          break;
+        }
+
+        case 'forfeit': {
+          const err = this.manager.forfeit(lobbyId, currentPlayer.id);
+          if (err) {
+            this.manager.sendTo(currentPlayer, {
+              type: 'error',
+              payload: { message: err },
+            });
+          }
+          break;
+        }
+
         case 'move': {
           const article = msg.payload.article as string | undefined;
           if (!article) {
@@ -239,8 +280,7 @@ export class LobbyManagerDO implements DurableObject {
             this.manager.sendTo(currentPlayer, {
               type: 'error',
               payload: {
-                message:
-                  'Cannot record move — game may not be in progress',
+                message: 'Cannot record move — game may not be in progress',
               },
             });
           }

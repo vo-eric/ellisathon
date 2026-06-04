@@ -1,5 +1,7 @@
 import type { LobbySnapshot, MoveListNodeSnapshot } from '../types';
 import { coerceArticle } from '../utils/lobbyWire';
+import { buildFinalGolfStandings } from '../utils/golfStandings';
+import GolfResultsBoard from './GolfResultsBoard';
 
 function movesForPlayerInChain(
   chain: MoveListNodeSnapshot | null,
@@ -14,7 +16,34 @@ function movesForPlayerInChain(
   return n;
 }
 
-const EndScreen = ({
+const GolfEndScreen = ({
+  lobby,
+  currentPlayerId,
+  onBackToLobbies,
+  onViewResults,
+}: {
+  lobby: LobbySnapshot;
+  currentPlayerId: string;
+  onBackToLobbies: () => void;
+  onViewResults: () => void;
+}) => {
+  const standings = buildFinalGolfStandings(lobby);
+  const targetTitle = coerceArticle(lobby.targetArticle).title;
+
+  return (
+    <GolfResultsBoard
+      standings={standings}
+      currentPlayerId={currentPlayerId}
+      targetTitle={targetTitle}
+      live={false}
+      winnerId={lobby.winnerId}
+      onBackToLobbies={onBackToLobbies}
+      onViewResults={onViewResults}
+    />
+  );
+};
+
+const RaceEndScreen = ({
   lobby,
   currentPlayerId,
   onBackToLobbies,
@@ -39,9 +68,11 @@ const EndScreen = ({
     <div>
       <h2>{isCurrentPlayerWinner ? 'You win!' : 'Game over.'}</h2>
       <p className='gameover-info'>
-        {isCurrentPlayerWinner ? 'You' : winner?.name} reached{' '}
-        {coerceArticle(lobby.targetArticle).title} in {numberOfMovesByWinnner}{' '}
-        moves.
+        {lobby.winnerId
+          ? `${
+              isCurrentPlayerWinner ? 'You' : winner?.name
+            } reached ${coerceArticle(lobby.targetArticle).title} in ${numberOfMovesByWinnner} moves.`
+          : `Nobody reached ${coerceArticle(lobby.targetArticle).title}.`}
       </p>
       <div style={{ display: 'flex', gap: '12px' }}>
         <button type='button' onClick={onBackToLobbies}>
@@ -66,6 +97,19 @@ const EndScreen = ({
         </p>
       )}
     </div>
+  );
+};
+
+const EndScreen = (props: {
+  lobby: LobbySnapshot;
+  currentPlayerId: string;
+  onBackToLobbies: () => void;
+  onViewResults: () => void;
+}) => {
+  return props.lobby.mode === 'golf' ? (
+    <GolfEndScreen {...props} />
+  ) : (
+    <RaceEndScreen {...props} />
   );
 };
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
+  GameMode,
   LobbySnapshot,
   MoveListNodeSnapshot,
   ServerMessage,
@@ -45,6 +46,11 @@ export type Match =
       playerMoves: Map<string, PathMove[]>;
       moveChain: MoveListNodeSnapshot | null;
       startedAtMs: number;
+      mode: GameMode;
+      /** Absolute epoch-ms deadline for golf matches; null in race mode. */
+      deadline: number | null;
+      /** Player ids that have forfeited (golf mode). */
+      forfeited: string[];
     }
   | {
       status: 'finished';
@@ -188,6 +194,9 @@ export function useLobbySocket({
           playerMoves: seed,
           moveChain: lobby.moveChain ?? null,
           startedAtMs: Date.now(),
+          mode: lobby.mode,
+          deadline: lobby.deadline,
+          forfeited: [],
         });
         setScreen('game');
         break;
@@ -213,6 +222,15 @@ export function useLobbySocket({
           return { ...prev, playerMoves: next };
         });
         break;
+      case 'player_forfeited': {
+        const pid = msg.payload.playerId;
+        setMatch((prev) => {
+          if (prev.status !== 'playing') return prev;
+          if (!pid || prev.forfeited.includes(pid)) return prev;
+          return { ...prev, forfeited: [...prev.forfeited, pid] };
+        });
+        break;
+      }
       case 'game_over': {
         const lobby = normalizeLobbySnapshot(msg.payload.lobby);
         setMatch((prev) => ({
@@ -333,6 +351,24 @@ export function useLobbySocket({
     ws.send(JSON.stringify({ type: 'kick_seat', payload: { seatIndex } }));
   }, []);
 
+  const setMode = useCallback((mode: GameMode) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'set_mode', payload: { mode } }));
+  }, []);
+
+  const setTimeLimit = useCallback((seconds: number) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'set_time_limit', payload: { seconds } }));
+  }, []);
+
+  const forfeit = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'forfeit', payload: {} }));
+  }, []);
+
   const dismissLobbyError = useCallback(() => {
     setLobbyError(null);
   }, []);
@@ -366,6 +402,9 @@ export function useLobbySocket({
     setSeats,
     kickSeat,
     returnToLobby,
+    setMode,
+    setTimeLimit,
+    forfeit,
     dismissLobbyError,
     sendMove,
     setIframeSrc,

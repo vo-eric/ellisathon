@@ -5,6 +5,8 @@ import { WaitingRoom } from './components/WaitingRoom';
 import ResultsPage, { SEAT_COLORS } from './components/ResultsPage';
 import { GameScreen } from './components/GameScreen';
 import EndScreen from './components/EndScreen';
+import GolfResultsBoard from './components/GolfResultsBoard';
+import { buildLiveGolfStandings } from './utils/golfStandings';
 import { moveChainToResultsPaths } from './utils/resultsPaths';
 import { useLobbySocket } from './hooks/useLobbySocket';
 import { useWikiNavigation } from './hooks/useWikiNavigation';
@@ -30,6 +32,9 @@ export default function App() {
     startGame,
     setSeats,
     kickSeat,
+    setMode,
+    setTimeLimit,
+    forfeit,
     returnToLobby,
     dismissLobbyError,
     sendMove,
@@ -45,12 +50,25 @@ export default function App() {
   const isCountdown = match.status === 'countdown';
   const inGameView = isPlaying || isCountdown;
 
-  const activeStartTitle =
-    isPlaying || isCountdown ? match.startTitle : '';
-  const activeTargetTitle =
-    isPlaying || isCountdown ? match.targetTitle : '';
-  const activeIframeSrc =
-    isPlaying || isCountdown ? match.iframeSrc : null;
+  const liveGolfStandings = useMemo(() => {
+    if (match.status !== 'playing' || match.mode !== 'golf') return [];
+    return buildLiveGolfStandings(
+      match.seats,
+      match.players,
+      match.playerMoves,
+      match.forfeited
+    );
+  }, [match]);
+
+  const localGolfStanding = liveGolfStandings.find((s) => s.id === myPlayerId);
+  const showGolfBoard =
+    isPlaying &&
+    (localGolfStanding?.status === 'finished' ||
+      localGolfStanding?.status === 'forfeited');
+
+  const activeStartTitle = isPlaying || isCountdown ? match.startTitle : '';
+  const activeTargetTitle = isPlaying || isCountdown ? match.targetTitle : '';
+  const activeIframeSrc = isPlaying || isCountdown ? match.iframeSrc : null;
 
   const { wikiRef, onWikiFrameLoad, resetRefs } = useWikiNavigation({
     isPlaying,
@@ -136,6 +154,8 @@ export default function App() {
                 onStartGame={startGame}
                 onSetSeats={setSeats}
                 onKickSeat={kickSeat}
+                onSetMode={setMode}
+                onSetTimeLimit={setTimeLimit}
                 onDismissError={dismissLobbyError}
               />
             ) : (
@@ -148,8 +168,25 @@ export default function App() {
           </div>
         </div>
 
+        {/* ── Live golf results board (local player finished or gave up) ── */}
+        {screen === 'game' && isPlaying && showGolfBoard && (
+          <div className='screen active screen-gameover'>
+            <div className='card'>
+              <GolfResultsBoard
+                standings={liveGolfStandings}
+                currentPlayerId={myPlayerId}
+                targetTitle={
+                  match.status === 'playing' ? match.targetTitle : ''
+                }
+                live
+                deadline={match.status === 'playing' ? match.deadline : null}
+              />
+            </div>
+          </div>
+        )}
+
         {/* ── Game screen (rendered for countdown & playing) ── */}
-        {screen === 'game' && inGameView && (
+        {screen === 'game' && inGameView && !showGolfBoard && (
           <div className='screen active screen-game'>
             <GameScreen
               myPlayerId={myPlayerId}
@@ -170,6 +207,7 @@ export default function App() {
                           color: SEAT_COLORS[seatIndex] ?? '#ccc',
                           moves,
                           finished,
+                          forfeited: match.forfeited.includes(playerId),
                         };
                       })
                       .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -186,6 +224,7 @@ export default function App() {
                           color: SEAT_COLORS[seatIndex] ?? '#ccc',
                           moves: [],
                           finished: false,
+                          forfeited: false,
                         };
                       })
                       .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -196,6 +235,16 @@ export default function App() {
               onWikiFrameLoad={onWikiFrameLoad}
               wikiRef={wikiRef}
               timerRunning={isPlaying}
+              mode={isPlaying ? match.mode : 'race'}
+              deadline={isPlaying ? match.deadline : null}
+              canForfeit={
+                isPlaying &&
+                match.mode === 'golf' &&
+                match.seats.includes(myPlayerId) &&
+                !match.forfeited.includes(myPlayerId) &&
+                !(match.playerMoves.get(myPlayerId) ?? []).some((m) => m.end)
+              }
+              onForfeit={forfeit}
             />
             {isCountdown && (
               <div

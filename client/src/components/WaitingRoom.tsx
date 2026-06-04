@@ -15,8 +15,13 @@ type Props = {
   onStartGame: () => void;
   onSetSeats: (count: number) => void;
   onKickSeat: (seatIndex: number) => void;
+  onSetMode: (mode: 'race' | 'golf') => void;
+  onSetTimeLimit: (seconds: number) => void;
   onDismissError: () => void;
 };
+
+const MIN_TIME_LIMIT_MINUTES = 1;
+const MAX_TIME_LIMIT_MINUTES = 60;
 
 function playerName(
   players: LobbySnapshot['players'],
@@ -37,11 +42,18 @@ export function WaitingRoom({
   onStartGame,
   onSetSeats,
   onKickSeat,
+  onSetMode,
+  onSetTimeLimit,
   onDismissError,
 }: Props) {
   const seats = lobby.seats ?? [];
   const seatReady = lobby.seatReady ?? [];
   const targetTitle = coerceArticle(lobby.targetArticle).title;
+  const mode = lobby.mode ?? 'race';
+  const timeLimitMinutes = Math.max(
+    MIN_TIME_LIMIT_MINUTES,
+    Math.round((lobby.timeLimitMs ?? 600000) / 60000)
+  );
 
   const occupiedSeats = seats.filter((s) => s !== null);
   const allSeatedReady =
@@ -91,6 +103,86 @@ export function WaitingRoom({
           and the host starts the game.
         </p>
       </div>
+
+      <section className='waiting-room-section'>
+        <h3 className='waiting-room-section-title'>Game mode</h3>
+        <div className='waiting-room-mode-options'>
+          <button
+            type='button'
+            className={[
+              'waiting-room-mode-btn',
+              mode === 'race' ? 'waiting-room-mode-btn--active' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => onSetMode('race')}
+            disabled={!isHost}
+            aria-pressed={mode === 'race'}
+          >
+            <span className='waiting-room-mode-name'>Race</span>
+            <span className='waiting-room-mode-desc'>
+              First to reach the target wins.
+            </span>
+          </button>
+          <button
+            type='button'
+            className={[
+              'waiting-room-mode-btn',
+              mode === 'golf' ? 'waiting-room-mode-btn--active' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => onSetMode('golf')}
+            disabled={!isHost}
+            aria-pressed={mode === 'golf'}
+          >
+            <span className='waiting-room-mode-name'>Golf</span>
+            <span className='waiting-room-mode-desc'>
+              Fewest clicks wins. Play until everyone finishes or gives up.
+            </span>
+          </button>
+        </div>
+
+        {mode === 'golf' && (
+          <div className='waiting-room-timelimit'>
+            <span className='waiting-room-timelimit-label'>Time limit</span>
+            {isHost && (
+              <button
+                type='button'
+                className='waiting-room-seat-ctrl-btn'
+                onClick={() =>
+                  onSetTimeLimit((timeLimitMinutes - 1) * 60)
+                }
+                disabled={timeLimitMinutes <= MIN_TIME_LIMIT_MINUTES}
+                aria-label='Decrease time limit'
+              >
+                <Minus size={14} />
+              </button>
+            )}
+            <span className='waiting-room-timelimit-value'>
+              {timeLimitMinutes} min
+            </span>
+            {isHost && (
+              <button
+                type='button'
+                className='waiting-room-seat-ctrl-btn'
+                onClick={() =>
+                  onSetTimeLimit((timeLimitMinutes + 1) * 60)
+                }
+                disabled={timeLimitMinutes >= MAX_TIME_LIMIT_MINUTES}
+                aria-label='Increase time limit'
+              >
+                <Plus size={14} />
+              </button>
+            )}
+          </div>
+        )}
+        {!isHost && (
+          <p className='waiting-room-muted waiting-room-mode-hint'>
+            Only the host can change the game mode.
+          </p>
+        )}
+      </section>
 
       <section className='waiting-room-section'>
         <h3 className='waiting-room-section-title'>Players in lobby</h3>
